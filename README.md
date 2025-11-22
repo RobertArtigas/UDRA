@@ -21,4 +21,19 @@ In the meantime, **U**ltimate **D**ebug **R**oberto **A**rtigas (**UDRA**) is be
 replacement for folks that need the additional features
 and have to use an older version of **U**ltimate **D**ebug (**UD**).
 
+##
+
+[Code](https://github.com/RobertArtigas/UDRA) 
+[Wiki](https://github.com/RobertArtigas/UDRA/wiki) 
+[Main](https://github.com/RobertArtigas) 
+[Repositories](https://github.com/RobertArtigas?tab=repositories)
+
+##
+
+**Fact** is information minus emotion;<br/>
+**Opinion** is information plus experience;<br/>
+**Ignorance** is an opinion lacking information;<br/> 
+**Stupidity** is an opinion that ignores fact.
+
+##
 
