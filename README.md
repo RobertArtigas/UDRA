@@ -19,6 +19,6 @@ applications that have been created with those specific unique features for thos
 **U**ltimate **D**ebug (**UD**) might eventually get the additional changes when I have time to go back and upgrade it.
 In the meantime, **U**ltimate **D**ebug **R**oberto **A**rtigas (**UDRA**) is being released as a stand alone 
 replacement for folks that need the additional features
-and have to use and older version of **U**ltimate **D**ebug (**UD**).
+and have to use an older version of **U**ltimate **D**ebug (**UD**).
 
 
