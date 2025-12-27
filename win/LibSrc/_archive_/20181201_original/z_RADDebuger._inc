@@ -1,0 +1,156 @@
+!ABCIncludeFile(DEBUGERCLASS)
+
+eqDBG                     EQUATE('<4,2,7>')                                 ! CTRL+D, CTRL+B, CTRL+G   !added 5/22/03 by Mark Goldberg
+MaxLineLength             EQUATE(4096)
+MaxMsgLen                 EQUATE(250)                                       !MG: I doubt that this is an OS limitation
+MAX:FEQ                   EQUATE(2147483647)                                !equivalent of CLEAR(Long,1) = 2^31 - 1
+DEBUGER:ClearCMDLine      EQUATE(0)
+DEBUGER:ClearAlways       EQUATE(1)
+DEBUGER:ClearNever        EQUATE(2)
+DEBUGER:Disabled          EQUATE(0)
+DEBUGER:Enabled           EQUATE(1)
+DEBUGER:EnableCMDLine     EQUATE(2)
+DEBUGER:DumpQueNoFile     EQUATE('NOFILE')
+DEBUGER:DumpQuePrompt     EQUATE('PROMPT')                                  !Note: if an empty string is passed, and self.dumpQueAsciiByDefault then will prompt too
+DEBUGER:ASCIINever        EQUATE(0)
+DEBUGER:ASCIIPrompt       EQUATE(1)
+DEBUGER:ASCIINoPrompt     EQUATE(2)
+AssertMsgAction:NOMATCH   EQUATE(0)
+AssertMsgAction:IGNORE    EQUATE(1)
+AssertMsgAction:PROMPT    EQUATE(2)
+AssertMsgAction:AUTOGPF   EQUATE(3)
+!AssetMsgAction:EVALUATE  EQUATE(4)
+
+qtUserEventName           QUEUE,TYPE                                      !Queue to store user defined event data
+EventEquate                 LONG
+EventName                   CSTRING(20)
+                          END
+
+qtAssertMessages          QUEUE,TYPE                                      !Queue to hold assert messages
+Priority                    LONG
+szMSG                       &CSTRING
+Action                      LONG
+MatchMode                   LONG                                          !should hold an AssetMsgAction::* value
+                          END
+
+FormatQ                   QUEUE                                           ! Queue which stores picture formats used when exporting data
+Pic                         STRING(30)
+                          END
+
+  PRAGMA('project(#pragma link(C%V%ASC%X%%L%.LIB))')
+ExportQFile     FILE,DRIVER('ASCII','/CLIP = on'),CREATE
+Record            RECORD
+Line                STRING(MaxLineLength)
+                  END
+                END
+
+DebugerClass          CLASS,TYPE,MODULE('RADDebuger.CLW'),LINK('RADDebuger.CLW',_DebugerClassLinkMode_),DLL(_DebugerClassDllMode_)
+AppendCRLF              BYTE
+AssertMessagesQ         &qtAssertMessages
+DebugActive             BYTE
+DebugFilter             STRING('`')                                       !Prepended to OutputDebugString calls, to facilitate Filtering in Debugviewer.exe
+DebugVersion            STRING('6.0.5')                                   !May 10, 2009 RBE
+DelayActive             BYTE(False)
+DelayBody               CSTRING(MaxMsgLen)
+DelayHeader             CSTRING(MaxMsgLen)
+DumpQueAsciiByDefault   BYTE                                              !enumerated: DEBUGER:ASCII*
+DumpQueDefaultFileName  CSTRING(FILE:MaxFilePath)                         !added Jan/12/05 MG
+Duplicates              LONG
+EventOffset             LONG(0A000h)                                      !Clarion 6 only
+FieldCnt                LONG,PRIVATE                                      !11/25 RBE - move to property used by DumpQue methods
+FnameOmitted            BYTE,PRIVATE                                      !11/25 RBE - move to property used by DumpQue methods
+HOLD:QBuffer            &STRING,PRIVATE                                   !11/25 RBE - move to property used by DumpQue methods
+HOLD:QRec               LONG,PRIVATE                                      !11/25 RBE - move to property used by DumpQue methods
+LastMsg                 CSTRING(MaxMsgLen)
+LineLen                 CSTRING(MaxLineLength + 1),PRIVATE                !11/25 RBE - move to property used by DumpQue methods
+LinePrefix              CSTRING(20),PRIVATE                               !11/25 RBE - move to property used by DumpQue methods
+NExportQFile            CSTRING(FILE:MaxFilePath),PRIVATE                 !11/25 RBE - move to property used by DumpQue methods
+NumberSame              LONG
+OSMode                  BYTE
+PgmName                 CSTRING(25)
+ProcTime                LONG
+ProcTrace               LONG
+RetValL                 LONG
+RetValS                 CSTRING(256)
+ShowMessageWindowBeep   BYTE(False)
+ThisModule              CSTRING(20)                                                 ! for setting this module name
+ThisMsg                 CSTRING(MaxMsgLen)
+UserEventNameQ          &qtUserEventName
+UseFile                 BYTE,PRIVATE                                                !11/25 RBE - move to property used by DumpQue methods
+UseSelf                 BYTE,PRIVATE                                                !added Dec/23/04 MG Flag indicates if SELF.Message will be called - changed 11/25 RBE to property
+AddAssertMsg            PROCEDURE(LONG argPriority, STRING argMessage, LONG argAction, LONG argMatchMode=1)      !added Aug,7 2005!  !1 = MATCH:WILD in equates.clw
+AddUserEvent            PROCEDURE(STRING argEventName,Long argEventEquate)  !MG added here to DescribeAction
+AssertHookAction        PROCEDURE(LONG Action, UNSIGNED LineNumber, STRING filename, STRING argMSG),LONG,VIRTUAL !added Aug,8 2005!
+CheckError              PROCEDURE(STRING argHeader,BYTE argShowMessage=False,BYTE argForceDebug=False),LONG
+!                       Parm 1 = message header
+!                       Parm 2 = if not omitted and = True then a message() will be issued along with the debugoutstriung
+!                       Parm 3 = if not omitted and = True then the debugout will be issued regardless of debug setting.
+ClearLog                PROCEDURE()                                                 ! clear the debugview screen
+ClearModuleDebuger      PROCEDURE()                                                 !,EXTENDS
+Construct               PROCEDURE()
+CWAssert                PROCEDURE(BYTE OnOff)                                       !, EXTENDS    !Alternative method to set/clear assert hooks
+DebugBreak              PROCEDURE(),VIRTUAL                                         ! 32bit api call (16-bit not supported)
+DebugOut                PROCEDURE(STRING Body,<STRING Header>,BYTE ShowMessage=False,BYTE ForceDebug=False),VIRTUAL !Deprecated
+DelAssertMsg            PROCEDURE(STRING   argMessage)
+DelayOut                PROCEDURE(STRING body,<STRING Header>,BYTE ArgForceDebug=False),VIRTUAL
+DescribeAction          PROCEDURE(LONG Action),STRING
+DescribeType            PROCEDURE(LONG xType),STRING
+Destruct                PROCEDURE()
+DQCountFields           PROCEDURE(QUEUE xQueue),PRIVATE                             !11/25 RBE moved to private method from local routine
+DQCreateFile            PROCEDURE(STRING xHeader, QUEUE xQueue, <STRING xFilename>),PRIVATE   !11/25 RBE moved to private method from local routine
+DQLoadPicFormat         PROCEDURE(<STRING xFormat>),PRIVATE                         !11/25 RBE moved to private method from local routine
+DQRestoreState          PROCEDURE(QUEUE xQueue),PRIVATE                             !11/25 RBE moved to private method from local routine
+DQReturn                PROCEDURE(STRING xHeader,QUEUE xQueue),STRING,PRIVATE,PROC  !11/25 RBE moved to private method from local routine
+DQSaveState             PROCEDURE(QUEUE xQueue),PRIVATE                             !11/25 RBE moved to private method
+DQWriteHeader           PROCEDURE(STRING xHeader,QUEUE xQueue),PRIVATE              !11/25 RBE moved to private method from local routine
+DQWriteRecords          PROCEDURE(STRING xHeader, QUEUE xQueue, <LONG xLimit>),PRIVATE        !11/25 RBE moved to private method from local routine
+DQWriteLine             PROCEDURE(),PRIVATE                                         !11/25 RBE moved to private method from local routine
+DumpControls            PROCEDURE(<*WINDOW xWin>, SIGNED xLowFEQ=-MAX:FEQ, SIGNED xHiFEQ=MAX:FEQ)!for dumping control info - calls ShowControl for each
+DumpQue                 PROCEDURE(STRING argheader, QUEUE xQueue, <STRING argFilename>, <STRING xFormat>, <LONG arglimit>, <BYTE argforce>),STRING,PROC   !, EXTENDS
+!                       Parm 1 = message header
+!                       Parm 2 - queue to be dumped
+!                       Parm 3 - filename to be written to (if omitted, a prompt for filename will be issued)
+!                       Parm 4 - Picture format
+!                       Parm 5 - Maximum number of queue records to dump or 0
+!                       Parm 6 - if not omitted and = true then the DumpQ will be issued regardless of debug setting.
+FreeAssertMsg           PROCEDURE()
+GetEventDescr           PROCEDURE(LONG ArgEvent=-1),STRING,VIRTUAL                  !defaults to EVENT()
+GetFEQDescr             PROCEDURE(SIGNED ArgFEQ=-1),STRING,VIRTUAL                  !defaults to FIELD()
+GetUserEvent            PROCEDURE(LONG argEventEquate),STRING
+HexOut                  PROCEDURE(STRING argToHexString,<STRING argHeadr>)          ! Output Hexidecimal representation of the string
+Init                    PROCEDURE(STRING ProgramName,BYTE DebugAlways=False ,SHORT DuplicateCount=50,BYTE argClear=DEBUGER:ClearNever, BYTE argAsciiByDefault=DEBUGER:ASCIIPrompt),VIRTUAL
+!                       parm 1 = program name
+!                       parm 2 = true/false - if true then Debuger on regardless of project Debug setting
+!                                '/Debuger' on the command line will also turn on the Debuger functions for that launch
+!                       parm 3 = number of duplicate Debug messages in a row before warning message. If zero, then do not track duplicates
+!                       parm 4 = enumerated see DEBUGER:CLEAR*  -- will send message to DebugView to clear itself (requires ver 4.3 or higher to work)
+!                       parm 5 = true/false - used to control default behavior of dumpQueue when argFilename is omitted
+Kill                    PROCEDURE(),VIRTUAL
+MatchAssertMsg          PROCEDURE(UNSIGNED LineNumber, STRING filename, STRING argMSG),LONG,VIRTUAL              !added Aug,7 2005!
+Message                 PROCEDURE(STRING Body,<STRING Header>,BYTE ShowMessage=False,BYTE ForceDebug=False),VIRTUAL
+!                       Parm 1 = body of message
+!                       Parm 2 = message Header
+!                       Parm 3 = if not FALSE then a message will be issued along with the DebugOutString
+!                       Parm 4 = if not FALSE then the DebugOut will be issued regardless of Debug setting.
+PrintEvent              PROCEDURE(<STRING ArgHeader>,<BYTE ArgForceDebug>,BYTE xDetail=False),VIRTUAL
+ProcEnter               PROCEDURE(STRING pProcName,<BYTE pFlag>, <BYTE pForce>, <BYTE pTimeOnly>) !, EXTENDS 
+ProcExit                PROCEDURE(STRING pProcname,<BYTE pFlag>, <BYTE pForce>, <BYTE pTimeOnly>) !, EXTENDS
+SetAssertHook           PROCEDURE()                                                 !,EXTENDS         !For using Clarion form of ASSERT
+SetAssertHook2          PROCEDURE()                                                 !,EXTENDS
+SetDumpQASCII           PROCEDURE(BYTE argNewValue)                                 !enumerated: DEBUGER:ASCII*, shortened RBE Jan/12/05
+SetDumpQFileName        PROCEDURE(STRING argNewFname)                               !added Jan/12/05 MG, shortened RBE Jan/12/05
+SetFilter               PROCEDURE(STRING xString),VIRTUAL                           !Changes the filter character
+SetModuleDebuger        PROCEDURE()                                                 !,EXTENDS
+ShowControl             PROCEDURE(*WINDOW xWin, LONG xFEQ)                          !Dumps details about one control
+ShowMessageWindow       PROCEDURE(STRING ArgBody, STRING ArgHeader),VIRTUAL         !note: self.ShowMessageWindowBeep FALSE->no beep ELSE beep
+ShowTimer               PROCEDURE(STRING pProcname,<BYTE pClear>)                   !, EXTENDS
+ShowTimes               PROCEDURE(<BYTE pClear>)                                    !, EXTENDS                      
+StartTimer              PROCEDURE(STRING pProcname,<BYTE pFlag>, <BYTE pForce>)     !, EXTENDS
+StopTimer               PROCEDURE(STRING pProcname,<BYTE pFlag>, <BYTE pForce>)     !, EXTENDS
+                      END                                                           !end CLASS DebugerClass
+
+DebugerAutoInit       CLASS(DebugerClass),TYPE,MODULE('RADDebuger.CLW'),LINK('RADDebuger.CLW',_DebugerClassLinkMode_),DLL(_DebugerClassDllMode_)
+Construct               PROCEDURE()
+Destruct                PROCEDURE()
+                      END
+

@@ -1,0 +1,275 @@
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! File Name:   UltimateDebug6.TPW
+#! Purpose:     Template add-on's to do procedure Callback/SQLCallback tracing.
+#! Author:      Copyright © 1999-2014 by Roberto Artigas. All rights reserved world wide.
+#!              Released under the Clarion Open Source License. (http://www.clarionmag.com/cmag/dospl.html)
+#! Changes:     Roberto Artigas
+#!  *   RA.2014.08.01   Begin creation of the trace callback/SQLcallback file extension
+#!  *   RA.2014.11.07   Have a problem in the intialize of the callback error (30-Entry Not Found)
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#EXTENSION(DebugCallbackFiles, 'RA.2014.08.01: Trace Callback/SQLCallback Files'),APPLICATION,REQ(UltimateDebugGlobal)
+#!---------------------------------------------------------------------
+#!
+#PREPARE
+#!DECLARE(%UseList),MULTI,UNIQUE
+#!DECLARE(%NameIt    ,%UseList)
+#!DECLARE(%UseIt     ,%UseList)
+#!DECLARE(%PrefixIt  ,%UseList)
+#!DECLARE(%DrvTypeIt ,%UseList)
+#!DECLARE(%CallTypeIt,%UseList)
+#!DECLARE(%DescrIt   ,%UseList)
+#ENDPREPARE
+#!
+#DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('Version ' & %CLSkelTPLVersion),AT(10,10),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('')
+#PROMPT('Generate Callback/SQLCallback Files' , CHECK), %GenCallBackFiles, DEFAULT(1), AT(10)
+#DISPLAY('')
+#DISPLAY('')
+#!
+#DISPLAY('RA.2014.11.07: EXPERIMENTAL: ===NOT WORKING=== RIGHT NOW.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('RA.2014.11.07: HAS AN ERROR THAT NEEDS ANOTHER SET OF EYES.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('')
+#!
+#SHEET,AT(,,288),HSCROLL
+#TAB('General')
+#BOXED(' Trace Callback/SQLCallback Files '),AT(,,280)
+  #ENABLE(~%CLSkelAppDisable AND %GenCallBackFiles)
+    #DISPLAY('')
+    #BUTTON('Select files for Callback/SQLCallback Tracing'),PROP(PROP:FontColor,7B0012H),PROP(PROP:FontStyle,400),AT(,,268,20)
+      #DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+      #DISPLAY('Version ' & %CLSkelTPLVersion),AT(10,10),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+      #DISPLAY('')
+      #DISPLAY('')
+      #DISPLAY('')
+      #DISPLAY('')
+      #SHEET,AT(,,288),HSCROLL
+      #TAB('General')
+        #BOXED(' File list for Callback/SQLCallback Trace'),AT(,,280)
+          #BUTTON('File List for Callback/SQLCallback Trace'),MULTI(%UsedFileList, %UseThis & ' | ' & %TheName & ' | ' & %TheFullName & ' | ' & %DrvType & ' | ' & %CallbackType & ' | ' & %FileDescr),AT(,,268),INLINE
+            #DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+            #DISPLAY('Version ' & %CLSkelTPLVersion),AT(10,10),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+            #DISPLAY('')
+            #DISPLAY('')
+            #DISPLAY('')
+            #SHEET,AT(,,288),HSCROLL
+            #TAB('General')
+              #BOXED(' File Parameters '),AT(,,280)
+              #DISPLAY('')
+              #PROMPT('Use This File:',DROP('NO[NO]|YES[YES]')),%UseThis,DEFAULT('NO'),AT(78,,200)
+              #ENABLE(%UseThis<>'YES')
+              #PROMPT('File Name:',FROM(%File,%FileType='FILE',UPPER(%File))),%TheName,REQ,AT(78,,200)
+              #ENDENABLE
+              #PREPARE
+              #IF(%TheName<>'')
+              #FIX(%File,%TheName)
+              #SET(%TheFullName,UPPER(%FilePrefix))
+              #SET(%DrvType,%FileDriver)
+              #!
+              #SET(%FileDescr,%FileDescription)
+              #CASE(%DrvType)
+              #OF  ('ASCII')
+              #OROF('BASIC')
+              #OROF('DOS')
+              #OROF('IN-MEMORY')
+              #OROF('TOPSPEED')
+                #SET(%CallbackType,'FILE')
+              #OF  ('ODBC')
+                #SET(%CallbackType,'SQL')
+              #ELSE
+                #SET(%CallbackType,'')
+              #ENDCASE
+              #!
+              #ENDIF
+              #ENDPREPARE
+              #ENABLE(%False)
+              #PROMPT('File Prefix',@S80),%TheFullName,DEFAULT(''),AT(78,,200)
+              #PROMPT('Driver Type:',@S80),%DrvType,DEFAULT(''),AT(78,,200)
+              #!ENDENABLE
+              #!ENABLE(%UseThis<>'YES')
+              #PROMPT('Callback Type:',DROP('FILE[FILE]|SQL[SQL]')),%CallbackType,DEFAULT(''),AT(78,,200)
+              #!VALIDATE((%CallbackType <> 'FILE') AND (%CallbackType <> 'SQL'),'Callback must be VALID type.')
+              #!ENDENABLE
+              #!ENABLE(%False)
+              #PROMPT('File Description:',@S80),%FileDescr,DEFAULT(''),AT(78,,200)
+              #ENDENABLE
+              #DISPLAY('')
+              #ENDBOXED
+            #ENDTAB
+            #!INSERT(%TabPurpose5b)
+            #!INSERT(%TabInstructions5b)
+            #ENDSHEET
+          #ENDBUTTON
+        #ENDBOXED
+      #ENDTAB
+      #!INSERT(%TabPurpose5c)
+      #!INSERT(%TabInstructions5c)
+      #!INSERT(%TabLimitations5c)
+      #!INSERT(%TabTesting5c)
+      #ENDSHEET
+      #DISPLAY('')
+    #ENDBUTTON
+    #DISPLAY('')
+  #ENDENABLE
+#ENDBOXED
+#BOXED(' Hidden Variables '),AT(,,280),HIDE
+  #BUTTON('File List for Trace'),MULTI(%UseList, %UseIt & ' | ' & %NameIt & ' | ' & %PrefixIt & ' | ' & %DrvTypeIt & ' | ' & %CallTypeIt & ' | ' & %DescrIt),AT(,,268),INLINE
+    #DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+    #DISPLAY('Version ' & %CLSkelTPLVersion),AT(10,10),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+    #DISPLAY('')
+    #DISPLAY('')
+    #DISPLAY('')
+    #SHEET,AT(,,288),HSCROLL
+      #TAB('General')
+        #ENABLE(%False)
+        #PROMPT('Use This File:',@S10),%UseIt,AT(78,,200)
+        #PROMPT('File Name:',@S40),%NameIt,AT(78,,200)
+        #PROMPT('File Prefix',@S80),%PrefixIt,AT(78,,200)
+        #PROMPT('Driver Type:',@S80),%DrvTypeIt,AT(78,,200)
+        #PROMPT('Callback Type:',@S10),%CallTypeIt,AT(78,,200)
+        #PROMPT('File Description:',@S80),%DescrIt,AT(78,,200)
+        #ENDENABLE
+      #ENDTAB
+    #ENDSHEET
+  #ENDBUTTON
+  #ENABLE(%False)
+  #PROMPT('ClassCounter:', @N03), %ClassCounter, DEFAULT(1), AT(58,,220)
+  #PROMPT('BuildClassName:', @S100), %BuildClassName, DEFAULT(''), AT(54,,224)
+  #ENDENABLE
+#ENDBOXED
+#ENDTAB
+#INSERT(%TabPurpose6a)
+#INSERT(%TabTesting6a)
+#ENDSHEET
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#AT(%BeforeGlobalIncludes),PRIORITY(0007)
+#EQUATE(%TheCount, ITEMS(%UsedFileList))
+! UD: UsedFileList is %TheCount items
+#FOR(%UsedFileList)
+! UD: UsedFileList: %UsedFileList: %UseThis | %TheName | %TheFullName | %DrvType | %CallbackType | %FileDescr
+  #FIND(%NameIt,%TheName)
+  #IF(%NameIt<>'')
+    #CYCLE
+  #ENDIF
+  ! UD: Did not find %TheName (%UseThis)
+  #IF(%UseThis='YES')
+    #ADD(%UseList   ,%TheName)
+    #SET(%NameIt    ,%TheName)
+    #SET(%UseIt     ,%UseThis)
+    #SET(%PrefixIt  ,%TheFullName)
+    #SET(%DrvTypeIt ,%DrvType)
+    #SET(%CallTypeIt,%CallbackType)
+    #SET(%DescrIt   ,%FileDescr)
+  ! UD: UseList: %UseList: %UseIt | %NameIt | %PrefixIt | %DrvTypeIt | %CallTypeIt | %DescrIt
+  ! UD: Add the entry to the table
+  #ENDIF
+! UD: ==========
+#ENDFOR
+#SET(%TheCount, ITEMS(%UseList))
+! UD: UseList is %TheCount items
+#FOR(%UseList)
+! UD: UseList: %UseList: %UseIt | %NameIt | %PrefixIt | %DrvTypeIt | %CallTypeIt | %DescrIt
+#ENDFOR
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%AfterGlobalIncludes),WHERE(~%CLSkelAppDisable AND %GenCallBackFiles)
+   INCLUDE('FILECB.INC'),ONCE  #<! Callback/SQLCallback definitions
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate a callback and sqlcallback as needed
+#AT(%GlobalData),WHERE(~%CLSkelAppDisable AND %GenCallBackFiles)
+! UD: Begin callback/sqlcallback class generation
+#SET(%ClassCounter, 1)
+#FOR(%UseList)
+  #SET(%BuildClassName, UPPER(%CLSkelClass) & '_CALLBACK_' & FORMAT(%ClassCounter, @N03) & '_' & CHOOSE(%CallTypeIt='FILE','FILE','SQL') & '_' & %NameIt)
+#! UD: %BuildClassName
+  #CASE(%CallTypeIt)
+  #OF('FILE')
+%[40]BuildClassName CLASS(UltimateDebugTraceFile)%CLSkelDataExternal
+%[40]NULL END
+  #OF('SQL')
+%[40]BuildClassName CLASS(UltimateDebugTraceSQL)%CLSkelDataExternal
+%[40]NULL END
+  #ELSE
+  #ENDCASE
+#!%CLSkelClass         CLASS(UltimateDebug)%CLSkelDataExternal
+#!                     END
+  #SET(%ClassCounter, %ClassCounter + 1)
+#ENDFOR
+! UD: End callback/sqlcallback class generation
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate a callback and sqlcallback as needed
+#AT(%DLLExportList),WHERE(%CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=1 AND ~%CLSkelAppDisable AND %GenCallBackFiles)
+; UD: Begin callback/sqlcallback export generation
+#SET(%ClassCounter, 1)
+#FOR(%UseList)
+  #SET(%BuildClassName, UPPER(%CLSkelClass) & '_CALLBACK_' & FORMAT(%ClassCounter, @N03) & '_' & CHOOSE(%CallTypeIt='FILE','FILE','SQL') & '_' & %NameIt)
+  $%[40]BuildClassName @?
+  #SET(%ClassCounter, %ClassCounter + 1)
+#ENDFOR
+; UD: End callback/sqlcallback export generation
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate a callback and sqlcallback as needed
+#! Do I want to generate only in the root dll?
+#AT(%ProgramSetup),WHERE(~%CLSkelAppDisable AND %GenCallBackFiles),PRIORITY(0003)
+! UD: Begin callback/sqlcallback class INIT generation
+#SET(%ClassCounter, 1)
+#FOR(%UseList)
+  #SET(%BuildClassName, UPPER(%CLSkelClass) & '_CALLBACK_' & FORMAT(%ClassCounter, @N03) & '_' & CHOOSE(%CallTypeIt='FILE','FILE','SQL') & '_' & %NameIt)
+  #SET(%BuildClassName, %BuildClassName & '.INIT(' & %NameIt & ')')
+%BuildClassName  #<! callback/sqlcallback class
+  #SET(%ClassCounter, %ClassCounter + 1)
+#ENDFOR
+! UD: End callback/sqlcallback class INIT generation
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate a callback and sqlcallback as needed
+#! Do I want to generate only in the root dll?
+#AT(%ProgramEnd),WHERE(~%CLSkelAppDisable AND %GenCallBackFiles),PRIORITY(9997)
+! UD: Begin callback/sqlcallback class KILL generation
+#SET(%ClassCounter, 1)
+#FOR(%UseList)
+  #SET(%BuildClassName, UPPER(%CLSkelClass) & '_CALLBACK_' & FORMAT(%ClassCounter, @N03) & '_' & CHOOSE(%CallTypeIt='FILE','FILE','SQL') & '_' & %NameIt)
+  #SET(%BuildClassName, %BuildClassName & '.KILL()')
+%BuildClassName  #<! callback/sqlcallback class
+  #SET(%ClassCounter, %ClassCounter + 1)
+#ENDFOR
+! UD: End callback/sqlcallback class KILL generation
+#ENDAT
+#!---------------------------------------------------------------------
+
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!
+#GROUP(%TabPurpose6a)
+#TAB('Purpose')
+  #DISPLAY('This creates CALLBACK interfaces to trace driver operations')
+  #DISPLAY('for ISAM files and SQLCALLBACK interfaces for SQL backends.')
+  #DISPLAY('')
+  #DISPLAY('Works for both ABC and LEGACY templates.')
+#ENDTAB
+#!---------------------------------------------------------------------
+#GROUP(%TabTesting6a)
+#TAB('Testing')
+  #DISPLAY('Tested 2014-08-01 with C9.1 and ABC templates.')
+  #DISPLAY('Tested 2014-08-01 with C9.1 and LEGACY templates.')
+  #DISPLAY('')
+  #DISPLAY('No other tests done.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #ENDTAB
+#!
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------

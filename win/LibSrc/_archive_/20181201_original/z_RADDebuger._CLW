@@ -1,0 +1,1042 @@
+  MEMBER
+
+  MAP
+    MODULE('Winapi')
+      DebugBreak(),PASCAL,RAW,NAME('DebugBreak')
+      OutputDebugString(*CSTRING),PASCAL,RAW,NAME('OutputDebugStringA')                   !32-bit only
+    END
+    MODULE('C%V%RUN%X%')
+      DebugerNameMessage(*CSTRING, UNSIGNED EventNum ),NAME('WslDebug$NameMessage'),RAW   !Note: use EVENT() + EVENT:FIRST else will get WM_*
+      DebugerGetFieldName(SIGNED FEQ),*CSTRING,RAW,NAME('Cla$FIELDNAME')
+    END
+    MODULE('clib')
+      LtoA(LONG num ,*CSTRING s, SIGNED radix),ULONG,RAW,NAME('_ltoa'),PROC
+    END
+    MyAssertHook(STRING filename,UNSIGNED LineNumber)                                     !Just like Clarion's ASSERT
+    MyAssertHook2(UNSIGNED LineNumber, STRING FileName, STRING Message)                   !Not technically part of the class
+    ODS_RAD(STRING Msg)
+
+  END
+
+  OMIT('Clarion 6.',_C60_); To use this class, you really need to be using Clarion 6.
+  PRAGMA('define(profile=>off)')                                                          !Ensures profiling is not set.
+
+  INCLUDE('RADDebuger.inc'),ONCE
+
+ProcQue       QUEUE,PRE(PRQ),STATIC
+ProcName        STRING(25)
+StartTime       LONG
+StopTime        LONG
+Elapsed         LONG  ! total elapsed time
+Number          LONG  ! number of times for average
+AvgTime         LONG  ! average time in this procedure
+              END
+
+DebugersQ         QUEUE                                               !added to handle multiple instances cleaner.
+Debuger            &DebugerClass
+                  END
+
+MOD:ClearedInInit LONG(False)
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.AddAssertMsg            PROCEDURE(LONG argPriority, STRING argMessage, LONG argAction, LONG argMatchMode)        !added Aug,7 2005!  !1 = MATCH:WILD in equates.clw
+!see LRM for MATCH
+!MATCH:* equates are found in Equates.clw
+!NOTE: consider adding MATCH:NOCASE to your argMatchMode
+  CODE
+  SELF.AssertMessagesQ.Priority = argPriority
+  SELF.AssertMessagesQ.szMSG &= NEW CSTRING(LEN(CLIP(argMessage)) + 1)
+  SELF.AssertMessagesQ.szMSG = CLIP(argMessage)
+  SELF.AssertMessagesQ.Action = argAction
+  SELF.AssertMessagesQ.MatchMode = argMatchMode
+  ADD(SELF.AssertMessagesQ,-SELF.AssertMessagesQ.Priority)                              !higher numbers go first
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.AddUserEvent            PROCEDURE(STRING argEventName,Long argEventEquate)  !MG added here to DescribeAction
+  CODE
+  IF ~SELF.UserEventNameQ &= NULL
+    IF SELF.GetUserEvent(argEventEquate)
+      SELF.UserEventNameQ.EventName = argEventName
+      PUT(SELF.UserEventNameQ)
+    ELSE
+      SELF.UserEventNameQ.EventEquate  = argEventEquate
+      SELF.UserEventNameQ.EventName = argEventName
+      ADD(self.UserEventNameQ)
+    END
+   END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.AssertHookAction        PROCEDURE(LONG Action, UNSIGNED LineNumber, STRING filename, STRING argMSG) !added Aug,8 2005!
+  CODE
+  RETURN False
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.CheckError              PROCEDURE(STRING argHeader,BYTE argShowMessage,BYTE argForceDebug)   ! checks errorcode()
+SVErrorCode   LONG,AUTO                                               !Init'd on first line
+SVError       CSTRING(200)
+
+  CODE
+  SVErrorCode = ErrorCode()
+  IF SVErrorCode AND SELF.DebugActive
+    SVError = ERROR()
+    SELF.Message('(' & SVErrorCode & ') ' & SVError,argHeader,argShowMessage,argForceDebug)
+  END
+  RETURN SVErrorCode
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ClearLog                  PROCEDURE()                             !Requires Debugview 4.3 or greater
+!From:  http://www.sysinternals.com/ntw2k/freeware/debugview.shtml
+!       Clear-output string: When DebugView sees the special debug output string "DBGVIEWCLEAR" it clears the output.
+szClear CSTRING('DBGVIEWCLEAR') !
+  CODE
+  IF Self.DebugActive
+    OutputDebugString(szClear)
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ClearModuleDebuger        PROCEDURE
+QPtr      LONG,AUTO                                                   !Init'd in 1st line of code
+
+  CODE
+  LOOP QPtr = RECORDS(DebugersQ) TO 1 BY -1
+    GET(DebugersQ,QPtr)
+    IF DebugersQ.Debuger &= SELF 
+      DELETE(DebugersQ)
+      BREAK
+    END
+  END
+  IF RECORDS(DebugersQ)                                               !Catch-all, likely redundant
+    GET(DebugersQ,RECORDS(DebugersQ))
+  ELSE
+    DebugersQ.Debuger &= NULL
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Construct                 PROCEDURE()
+  CODE
+  ODS_RAD('`DebugerClass.Construct Version [' & SELF.DebugVersion & '] SELF['& ADDRESS(SELF) &'] Records(DebugersQ)['& RECORDS(DebugersQ) &'] Pointer['& POINTER(DebugersQ) &']')
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.CWAssert                PROCEDURE(BYTE OnOff)
+  CODE
+  IF ~OnOff
+!    SYSTEM{PROP:AssertHook} = 0
+    SYSTEM{PROP:AssertHook2} = 0
+  ELSE
+!    SELF.SetAssertHook()
+    SELF.SetAssertHook2()
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DebugBreak                PROCEDURE                          ! only for 32 bit
+  CODE
+  IF SELF.DebugActive
+    DebugBreak()                                                          ! asm Routine
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DebugOut                  PROCEDURE(STRING ArgBody,<STRING ArgHeader>,BYTE ArgShowMessage,BYTE ArgForceDebug)
+  CODE
+  SELF.Message(ArgBody,ArgHeader,ArgShowMessage,ArgForceDebug)
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DelAssertMsg              PROCEDURE(STRING argMessage)
+  CODE
+  SELF.AssertMessagesQ.szMSG = CLIP(argMessage)                           !clip prob. unneeded
+  GET(SELF.AssertMessagesQ, SELF.AssertMessagesQ.szMSG)
+  IF ~ErrorCode()
+    DISPOSE(SELF.AssertMessagesQ.szMSG)
+    DELETE(SELF.AssertMessagesQ)
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DelayOut                  PROCEDURE(STRING ArgBody,<STRING ArgHeader>,BYTE ArgForceDebug)
+  CODE
+  IF SELF.DebugActive OR ArgForceDebug
+    IF ~SELF.DelayActive                                                  !MG: consider forcing Output, when header changes (AND is non-null)
+      IF ~OMITTED(ArgHeader)
+        SELF.DelayHeader = ArgHeader
+      ELSE
+        SELF.DelayHeader = ''
+      END
+      SELF.DelayBody   = ArgBody
+      SELF.DelayActive = True
+    ELSE
+      IF ~OMITTED(ArgHeader) AND ArgHeader AND ArgHeader <> SELF.DelayHeader    !Force Output, AND start a new delay
+        SELF.Message('',SELF.DelayHeader,False,True)
+        SELF.DelayHeader = ArgHeader
+        SELF.DelayBody   = ArgBody
+      ELSE
+        SELF.DelayBody   = CLIP(SELF.DelayBody) & ArgBody
+      END
+    END
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DescribeAction          PROCEDURE(LONG Action)
+  CODE
+  CASE Action
+  OF AssertMsgAction:NOMATCH
+    RETURN 'NoMatch'
+  OF AssertMsgAction:IGNORE
+    RETURN 'Ignore'
+  OF AssertMsgAction:PROMPT
+    RETURN 'Prompt'
+  OF AssertMsgAction:AUTOGPF
+    RETURN 'AutoGPF'
+  ELSE
+    RETURN 'UNKNOWN!'
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DescribeType  PROCEDURE(LONG xType)
+RetVal CSTRING(25)
+
+  CODE
+  CASE xType
+  OF CREATE:Sstring     ; RetVal = 'CREATE:Sstring'
+  OF CREATE:String      ; RetVal = 'CREATE:String'
+  OF CREATE:Image       ; RetVal = 'CREATE:Image'
+  OF CREATE:Region      ; RetVal = 'CREATE:Region'
+  OF CREATE:Line        ; RetVal = 'CREATE:Line'
+  OF CREATE:Box         ; RetVal = 'CREATE:Box'
+  OF CREATE:Ellipse     ; RetVal = 'CREATE:Ellipse'
+  OF CREATE:Entry       ; RetVal = 'CREATE:Entry'
+  OF CREATE:Button      ; RetVal = 'CREATE:Button'
+  OF CREATE:Prompt      ; RetVal = 'CREATE:Prompt'
+  OF CREATE:Option      ; RetVal = 'CREATE:Option'
+  OF CREATE:Check       ; RetVal = 'CREATE:Check'
+  OF CREATE:Group       ; RetVal = 'CREATE:Group'
+  OF CREATE:List        ; RetVal = 'CREATE:List'
+  OF CREATE:Combo       ; RetVal = 'CREATE:Combo'
+  OF CREATE:Spin        ; RetVal = 'CREATE:Spin'
+  OF CREATE:Text        ; RetVal = 'CREATE:Text'
+  OF CREATE:Custom      ; RetVal = 'CREATE:Custom'
+  OF CREATE:Menu        ; RetVal = 'CREATE:Menu'
+  OF CREATE:Item        ; RetVal = 'CREATE:Item'
+  OF CREATE:Radio       ; RetVal = 'CREATE:Radio'
+  OF CREATE:MenuBar     ; RetVal = 'CREATE:MenuBar'
+  OF CREATE:Application ; RetVal = 'CREATE:Application'
+  OF CREATE:Window      ; RetVal = 'CREATE:Window'
+  OF CREATE:Report      ; RetVal = 'CREATE:Report'
+  OF CREATE:Header      ; RetVal = 'CREATE:Header'
+  OF CREATE:Footer      ; RetVal = 'CREATE:Footer'
+  OF CREATE:Break       ; RetVal = 'CREATE:Break'
+  OF CREATE:Form        ; RetVal = 'CREATE:Form'
+  OF CREATE:Detail      ; RetVal = 'CREATE:Detail'
+  OF CREATE:OLE         ; RetVal = 'CREATE:OLE'
+  OF CREATE:DropList    ; RetVal = 'CREATE:DropList'
+  OF CREATE:DropCombo   ; RetVal = 'CREATE:DropCombo'
+  OF CREATE:Progress    ; RetVal = 'CREATE:Progress'
+  OF CREATE:Sheet       ; RetVal = 'CREATE:Sheet'
+  OF CREATE:Tab         ; RetVal = 'CREATE:Tab'
+  OF CREATE:Panel       ; RetVal = 'CREATE:Panel'
+  OF CREATE:RTF         ; RetVal = 'CREATE:RTF'
+  OF CREATE:SubList     ; RetVal = 'CREATE:SubList'
+  OF CREATE:ToolBar     ; RetVal = 'CREATE:ToolBar'
+  ELSE                  ; RetVal = 'Unknown['& xType &']'
+  END
+  RETURN RetVal
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Destruct                  PROCEDURE()
+  CODE
+  SELF.Kill()
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DumpControls  PROCEDURE(<*WINDOW xWin>, SIGNED xLowFEQ=-MAX:FEQ, SIGNED xHiFEQ=MAX:FEQ)
+CurrFEQ     LONG
+HoldTarget  &WINDOW
+
+  CODE
+  IF OMITTED(xWin)
+    xWin &= SYSTEM{PROP:Target}
+  ELSE
+    HoldTarget &= SYSTEM{PROP:Target}
+    SetTarget(xWin)                                                   !added so could make use of .GetFEQDescr() which assumes the current window
+  END
+  SELF.Message('DumpControls ===[start]={42}')
+  SELF.Message('WindowCaption['& xWin{prop:Text} &']')
+  LOOP
+    CurrFEQ = xWin{PROP:NextField, CurrFEQ}                           !Where is xLowFEQ used?
+    IF ~CurrFEQ OR CurrFEQ > xHiFEQ
+      BREAK
+    END
+    SELF.ShowControl(xWin, CurrFEQ)
+  END
+  SELF.Message('DumpControls ===[end]={42}')
+
+!------------------------------------------------------------------
+DebugerClass.DQCountFields   PROCEDURE(QUEUE xQueue)
+!| Count the number of fields in the queue, and store in SELF.FieldCnt property
+LOC:Any     ANY
+
+  CODE
+  SELF.FieldCnt = 0
+  LOOP
+    LOC:Any &= WHAT(xQueue, SELF.FieldCnt + 1)
+    IF LOC:Any &= NULL THEN BREAK.
+    SELF.FieldCnt += 1
+  END
+
+!------------------------------------------------------------------
+DebugerClass.DQCreateFile           PROCEDURE(STRING xHeader, QUEUE xQueue, <STRING xFilename>)
+  CODE
+  IF ~RECORDS(xQueue)
+    SELF.RetValS = 'Queue is empty. No export file produced.'
+    SELF.DQReturn(SELF.RetValS,xQueue)
+  END
+  IF SELF.UseFile
+    IF SELF.FnameOmitted OR UPPER(CLIP(xFileName)) = DEBUGER:DumpQuePrompt
+      SELF.NExportQFile = SELF.DumpQueDefaultFileName
+      IF SELF.DumpQueAsciiByDefault = DEBUGER:ASCIIPrompt
+        IF ~FileDialog('Export Queue to file ...', SELF.NExportQFile, 'CSV files (*.csv)|*.csv', FILE:Save + FILE:KeepDir + FILE:LongName) ! prompt for a filename if not already provided
+          SELF.RetValS = 'No export file selected from FileDialog'
+          SELF.DQReturn(SELF.RetValS, xQueue)
+        ELSE
+          ExportQFile{PROP:Name} = SELF.NExportQFile
+        END
+      END
+    ELSE
+      SELF.NExportQFile = xFileName
+      ExportQFile{PROP:Name} = SELF.NExportQFile
+    END
+    CREATE(ExportQFile)
+    IF ~ErrorCode()
+      OPEN(ExportQFile)
+    ELSE
+      SELF.RetValS = 'No export file produced.|Error: ' & CLIP(ErrorCode()) & ' ' & CLIP(ERROR())
+      SELF.DQReturn(SELF.RetValS, xQueue)
+    END
+    IF SELF.UseSelf
+      SELF.Message('DumpQ File created - ' & SELF.NExportQfile,xHeader)
+    END
+  END
+
+!------------------------------------------------------------------
+DebugerClass.DQLoadPicFormat   PROCEDURE(<STRING xFormat>)
+!| If an optional xFormat string exists, then parse this string (using | as delimiter)
+!| and store it in FormatQ to be used when writing out to file.
+LOC:Pos     LONG
+LOC:NextPos LONG
+LOC:Ndx     LONG
+LOC:Len     LONG
+
+  CODE
+  IF ~OMITTED(xFormat)
+    LOC:Pos = 1
+    LOC:Len = LEN(xFormat)
+    LOOP LOC:Ndx = 1 TO SELF.FieldCnt
+      IF LOC:Pos > LOC:Len THEN BREAK.
+      LOC:NextPos = InString('|',xFormat,1,LOC:Pos)
+      IF ~LOC:NextPos
+        LOC:NextPos = LOC:Len + 1
+        FormatQ.Pic = ''
+      ELSE
+        FormatQ.Pic = xFormat[ LOC:Pos : LOC:NextPos - 1]
+      END
+      FormatQ.Pic = xFormat[LOC:Pos : LOC:NextPos - 1]
+      ADD(FormatQ)
+      LOC:Pos = LOC:NextPos + 1
+    END
+  END
+!------------------------------------------------------------------
+DebugerClass.DQRestoreState            PROCEDURE(QUEUE xQueue)
+  CODE
+  GET(xQueue,SELF.HOLD:QRec)
+  xQueue = SELF.HOLD:QBuffer
+  DISPOSE(SELF.HOLD:QBuffer)
+
+!------------------------------------------------------------------
+DebugerClass.DQReturn                  PROCEDURE(STRING xHeader,QUEUE xQueue)
+  CODE
+  IF SELF.UseSelf
+    SELF.Message(SELF.RetValS,xHeader)
+  END
+  IF ~SELF.Hold:QBuffer &= NULL                                           !If buffer not null
+    SELF.DQRestoreState(xQueue)                                           !Do proper disposal since this method can be called early.
+ END                            
+ RETURN SELF.RetValS
+
+!------------------------------------------------------------------
+DebugerClass.DQSaveState               PROCEDURE(QUEUE xQueue)
+  CODE
+  SELF.HOLD:QBuffer &= NEW STRING(SIZE(xQueue))
+  SELF.HOLD:QBuffer  = xQueue
+  SELF.HOLD:QRec     = POINTER(xQueue)
+
+!------------------------------------------------------------------
+DebugerClass.DQWriteHeader     PROCEDURE(STRING xHeader,QUEUE xQueue)
+!| Write a header line to export file, with the NAMES of each column
+LOC:Ndx       LONG
+LOC:Comma     CSTRING(2) !no auto
+LOC:Quote     CSTRING('"')
+LOC:DimCount  LONG
+
+  CODE
+  IF SELF.UseSelf
+    SELF.Message('DumpQ - ' & SELF.LinePrefix & '={42}')
+    SELF.Message('DumpQ - ' & SELF.LinePrefix & xHeader )
+    LOC:Quote = ''
+  END
+  SELF.LineLen = ''
+  LOOP LOC:Ndx = 1 TO SELF.FieldCnt
+    GET(FormatQ, LOC:Ndx)
+    IF ~ErrorCode() AND FormatQ.Pic <> '' AND FormatQ.Pic[1] = 'X' THEN CYCLE. !added MG Dec/24/04 fixed RBE Jan/11/05
+    SELF.LineLen = SELF.LineLen & LOC:Comma & LOC:Quote & CLIP(WHO(xQueue, LOC:Ndx)) & LOC:Quote
+    LOC:Comma = ','
+    IF HowMany(xQueue,LOC:Ndx) = 1
+       SELF.LineLen = SELF.LineLen & LOC:Comma & LOC:Quote & CLIP(WHO(xQueue, LOC:Ndx)) & LOC:Quote
+       LOC:Comma = ','
+    ELSE
+       LOOP LOC:DimCount = 1 TO HowMany(xQueue,LOC:Ndx)
+         SELF.LineLen = SELF.LineLen & LOC:Comma & LOC:Quote & CLIP(WHO(xQueue, LOC:Ndx)) & '['& LOC:DimCount &']' & LOC:Quote
+         LOC:Comma = ','
+       END
+    END
+  END
+  SELF.DQWriteLine
+
+!------------------------------------------------------------------
+DebugerClass.DQWriteLine                PROCEDURE()
+  CODE
+  IF SELF.UseSelf
+    SELF.Message('DumpQ - ' & SELF.LineLen )
+  END
+  IF SELF.UseFile
+    ExportQFile.Line = SELF.LineLen
+    ADD(ExportQFile)
+  END
+
+!------------------------------------------------------------------
+DebugerClass.DQWriteRecords    PROCEDURE(STRING xHeader, QUEUE xQueue, <LONG xLimit>)
+!| Write contents of Queue to file, one record at a time,
+!| enclosing strings in "" (quotes), and using the format picture if supplied
+LOC:Ndx         LONG,AUTO                                             !Init'd top of a LOOP
+LOC:FieldNdx    LONG,AUTO                                             !Init'd top of a LOOP
+LOC:Any         ANY
+LOC:NextValue   CSTRING(SIZE(SELF.LineLen))
+LOC:Tmp         LONG,AUTO                                             !Init'd end of routine
+LOC:RecPicture  CSTRING(10)
+LOC:DimCount    LONG,AUTO                                             !Init'd top of a LOOP
+
+  CODE
+  LOC:RecPicture = '@N_' & INT(LOG10(RECORDS(xQueue))) + 1
+  LOOP LOC:Ndx = 1 TO RECORDS(xQueue)                                 !AUTO'd var init'd
+    GET(xQueue, LOC:Ndx)
+    IF LOC:Ndx > xLimit AND xLimit > 0
+      IF SELF.UseSelf
+        SELF.Message('Max of ' & xLimit & ' Que records dumped',xHeader)
+      END
+      BREAK
+    END
+    SELF.LinePrefix = 'Rec['& FORMAT(LOC:Ndx,LOC:RecPicture) &'] '
+    SELF.LineLen = ''
+    LOOP LOC:FieldNdx = 1 TO SELF.FieldCnt                            !AUTO'd var init'd
+      GET(FormatQ, LOC:FieldNdx)
+      LOOP LOC:DimCount = 1 TO HowMany(xQueue,LOC:FieldNdx)           ! added July,18,2005 AUTO'd var init'd
+        LOC:Any &= WHAT(xQueue, LOC:FieldNdx,LOC:DimCount )
+        !Note: in C6 could use IsGroup() logic to help avoid some problems.(should really be done when building the FormatQ)
+        IF ~ERRORCODE() AND FormatQ.Pic <> ''
+          CASE FormatQ.Pic[1]                                         ! Use picture format is one is supplied (eg date/time)
+          OF 'X'
+            CYCLE                                                     !added MG Dec/22/04
+          OF ' '
+            LOC:NextValue = FormatQ.Pic                               !added MG May/10/05 new policy
+          ELSE    
+            LOC:NextValue = FORMAT(LOC:Any, FormatQ.Pic)
+          END
+        ELSIF IsString(LOC:Any)
+          LOC:NextValue = '"' & CLIP(LOC:Any) & '"'                   ! enclose String data types in quotes ""
+        ELSE
+          LOC:NextValue = LOC:Any                                     ! Non-string data can be exported as is
+        END
+        SELF.LineLen = SELF.LineLen & LOC:NextValue & ','             !leaves a comma after the last field..., and is inneficient, should change to a LHS string slice ....
+      END                                                             !loop .. HOWMANY
+    END                                                               !loop LOC:FieldNdx
+    LOC:Tmp = LEN(CLIP(SELF.LineLen))                                 !Init'd top of a LOOP
+    IF LOC:Tmp
+      SELF.LineLen[LOC:Tmp] = '<32>'                                  !space
+    END
+    SELF.DQWriteLine
+  END
+  SELF.LinePrefix = ''
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.DumpQue                   PROCEDURE(STRING xHeader, QUEUE xQueue, <STRING xFileName>, <STRING xFormat>, <LONG xLimit>, <BYTE xForce>)
+!NOTE TO SELF: Pad entries with spaces in the next update
+
+RetVal          CSTRING(500)
+FnameOmitted    LONG
+
+  CODE
+  SELF.RetValS = ''
+  SELF.UseSelf = CHOOSE(SELF.DebugActive OR xForce)                     !fixed MG Dec/24/04 - was backwards
+  FnameOmitted = CHOOSE(OMITTED(xFilename) OR xFileName='')
+  IF FnameOmitted
+    SELF.UseFile = CHOOSE(SELF.DumpQueAsciiByDefault <> DEBUGER:ASCIINever AND UPPER(SELF.DumpQueDefaultFileName) <> DEBUGER:DumpQueNoFile)
+  ELSE
+    SELF.UseFile = CHOOSE(UPPER(xFileName) <> DEBUGER:DumpQueNoFile )
+  END
+  IF ~SELF.UseSelf AND ~SELF.UseFile
+    SELF.RetValS = 'No output requested'
+    SELF.DQReturn(SELF.RetValS,xQueue)
+  END
+  SELF.DQSaveState(xQueue)
+  SELF.DQCreateFile(xHeader,xQueue,xFileName)
+  SELF.DQCountFields(xQueue)
+  SELF.DQLoadPicFormat(xFormat)
+  SELF.DQWriteHeader(xHeader,xQueue)
+  SELF.DQWriteRecords(xHeader,XQueue,xLimit)
+  SELF.DQRestoreState(xQueue)
+  IF SELF.UseFile
+    CLOSE(ExportQFile)
+  END
+  SELF.RetValS = ''
+  RetVal = SELF.DQReturn(SELF.RetValS,xQueue)
+  RETURN RetVal
+
+!------------------------------------------------------------------
+DebugerClass.FreeAssertMsg           PROCEDURE()
+QPtr      LONG,AUTO                                                   !Init'd top of LOOP
+
+  CODE
+  IF ~(SELF.AssertMessagesQ &= NULL)
+    LOOP QPtr = RECORDS(SELF.AssertMessagesQ) TO 1 BY -1
+      GET(SELF.AssertMessagesQ,QPtr)
+      DISPOSE(SELF.AssertMessagesQ.szMSG)
+      DELETE(SELF.AssertMessagesQ)
+    END
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.GetEventDescr             PROCEDURE(LONG ArgEvent)
+LOC:Retval      CSTRING(128)
+LOC:EventNum    UNSIGNED
+LOC:Event       CSTRING(21)
+
+  CODE
+  IF argEvent = -1
+    argEvent = EVENT()
+  END
+  CASE argEvent
+  OF EVENT:User
+    LOC:Retval = 'EVENT:User'
+  OF EVENT:User + 1 TO EVENT:Last
+    LOC:Retval = 'EVENT:User + '& argEvent - EVENT:User
+  ELSE
+    IF SELF.EventOffset = -2
+      LOC:Retval = 'Event['& argEvent &']'
+    ELSE
+      LOC:EventNum = argEvent + SELF.EventOffset  ! 1400h (pre c6) or A000h (c6) !EVENT:FIRST equate(01400h)/(0A000h)
+      DebugerNameMessage(LOC:Retval, LOC:EventNum)
+    END
+  END
+  RETURN LOC:Retval
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.GetFEQDescr               PROCEDURE(SIGNED ArgFEQ)
+Retval   CSTRING(40)
+FEQ      SIGNED
+
+  CODE
+  FEQ    = CHOOSE(ArgFEQ = -1, FIELD(), ArgFEQ)
+  RetVal = DebugerGetFieldName(FEQ)
+  RETURN RetVal
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.GetUserEvent            PROCEDURE(LONG argEventEquate)
+RetVal    CSTRING(40)
+
+  CODE
+  IF ~SELF.UserEventNameQ &= NULL
+    SELF.UserEventNameQ.EventEquate  = argEventEquate
+    GET(SELF.UserEventNameQ, SELF.UserEventNameQ.EventEquate)
+    RetVal = CHOOSE(ErrorCode() = 0, SELF.UserEventNameQ.EventName, '')
+  ELSE
+    RetVal = ''
+  END
+  RETURN RetVal
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Hexout                    PROCEDURE(STRING argToHexString,<STRING argHeadr>)
+i       SHORT,AUTO
+Value   LONG
+Result  STRING(i)
+hx      CSTRING(10)
+Idx     LONG
+
+  CODE
+  IF SELF.DebugActive
+    i = LEN(argToHexString) * 2                                           ! make receiving string twice as large as passed string
+    LOOP Idx = 1 TO LEN(argToHexString)
+      VALUE = VAL(argToHexString[Idx])
+      LtoA(VALUE,hx,16)                                                   ! convert base 16 to a string
+      Result = CLIP(Result) & UPPER(hx)
+    END
+    SELF.Message(Result,argHeadr)
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Init                      PROCEDURE(STRING ArgPgmName,BYTE ArgOSMode,SHORT ArgDuplicates,BYTE argClear=DEBUGER:ClearNever, BYTE argAsciiByDefault=DEBUGER:ASCIIPrompt)
+  CODE
+  SELF.PgmName     = ArgPgmName
+  SELF.AppendCRLF  = True                                                !mg Feb/5/04 -- may wish to turn off "Options->Force Carrigage Returns" in debugView
+  SELF.OSMode      = ArgOSMode                                           !this parameter IF true, turns on Debug regaredless of project setting
+  SELF.Duplicates  = ArgDuplicates                                       ! default number of same Debug messages in a row before a warning message is issued
+  SELF.DebugActive = CHOOSE(SELF.OSMode <> DEBUGER:Disabled OR COMMAND('/Debuger')) ! OSMode  -> force Debug on regardless of Debug in project, COMMAND -> force Debug on a production app
+  IF ~MOD:ClearedInInit
+    CASE argClear
+    OF DEBUGER:ClearAlways
+      SELF.ClearLog()
+      MOD:ClearedInInit = True
+    OF DEBUGER:ClearCMDLine
+      IF COMMAND('/Clear')
+        SELF.ClearLog()
+        MOD:ClearedInInit = True
+      END
+    END                                                                 !case
+  END
+  IF SELF.DebugActive
+    SELF.Message('Program Started ['& FORMAT(TODAY(),@D18) &'] @['& FORMAT(CLOCK(),@T8) &']- v{100}')
+    IF SELF.OSMode
+      SELF.Message('Notice - Debuger forced on (INIT)')                ! force Debug on regardless of Debug in project
+    ELSE
+      SELF.Message('Notice - Debuger turned on from COMMAND line')     ! force Debug on a production app
+    END
+    SELF.Message('Debuger Class version ' & SELF.DebugVersion)         !Dumped the date, replaced with version number
+  END
+  SELF.SetDumpQFileName('ExportQ.csv')
+  SELF.SetDumpQAscii(argAsciiByDefault)
+  DO InitSetEventOffset
+  SELF.SetModuleDebuger()
+  SELF.CWAssert(True)                                                  !Turn on AssertHooks
+  SELF.UserEventNameQ &= NEW qtUserEventName
+  SELF.AssertMessagesQ &= NEW qtAssertMessages
+!-------------------------------------
+InitSetEventOffset                ROUTINE
+DATA
+EventNum  LONG
+
+  CODE
+  SELF.Message('Running InitSetOffSet routine')
+  IF UPPER(SELF.GetEventDescr(EVENT:Accepted)) = 'EVENT:ACCEPTED' THEN EXIT.
+  SELF.Message('SELF.EventOffset is not correct, trying to find a correct value')
+  SELF.EventOffset = CHOOSE(SELF.EventOffset = 01400h, 0A000h, 01400h)
+  IF UPPER(SELF.GetEventDescr(EVENT:Accepted)) = 'EVENT:ACCEPTED' THEN EXIT.
+  SELF.EventOffset = GetIni('Debuger','EventOffset', -1,'.\DebugerClass.ini')    !RBE 06/29/2006 - keep out of wini.ini and Windows folder
+  CASE SELF.EventOffset
+  OF -2
+    SELF.Message('Stored value for EventOffset indicates no valid offset to be found, not searching')
+    EXIT
+  OF -1
+    SELF.Message('SELF.EventOffset is not correct, searching for correct value')
+  ELSE
+    IF UPPER(SELF.GetEventDescr(EVENT:Accepted)) = 'EVENT:ACCEPTED'
+      SELF.Message('Using stored value for SELF.EventOffset')
+      EXIT
+    END
+  END
+!The loops are split out to search more likely ranges first
+!for efficiency it makes more sense to check offsets incrementing by 100, searching for a result that starts with 'EVENT'
+  LOOP EventNum = 0A000h TO 0AFFFh
+    SELF.EventOffset = EventNum
+    DO FindOffset
+  END
+  LOOP EventNum = 01000h TO 01FFFh
+    SELF.EventOffset = EventNum
+    DO FindOffset
+  END
+  LOOP EventNum = 00000h TO 00FFFh
+    SELF.EventOffset = EventNum
+    DO FindOffset
+  END
+  LOOP EventNum = 0B000h TO 0FFFFh
+    SELF.EventOffset = EventNum
+    DO FindOffset
+  END
+  SELF.Message('Could not find a working offset for .EventOffset')
+  SELF.EventOffset = -2
+  PutIni('Debuger','EventOffset',SELF.EventOffset,'.\DebugerClass.ini')        !RBE 06/29/2006 - keep this out of win.ini and Windows folder
+  EXIT
+!-------------------------------------
+FindOffset                        ROUTINE
+  IF UPPER(SELF.GetEventDescr(EVENT:Accepted)) = 'EVENT:ACCEPTED'
+    PutIni('Debuger','EventOffset',SELF.EventOffset,'.\DebugerClass.ini')      !RBE 06/29/2006 - keep this out of win.ini and Windows folder
+    EXIT
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Kill                      PROCEDURE()
+  CODE
+  IF SELF.DebugActive
+    SELF.Message('Program Ended ['& FORMAT(TODAY(),@D18) &'] @['& FORMAT(CLOCK(),@T8) &'] ^{100}')
+    SELF.DebugActive = False
+  END
+  IF ~(SELF.UserEventNameQ &= NULL)
+    FREE(SELF.UserEventNameQ)
+    DISPOSE(SELF.UserEventNameQ)
+  END
+  IF ~(SELF.AssertMessagesQ &= NULL)
+    SELF.FreeAssertMsg()
+    DISPOSE(SELF.AssertMessagesQ)
+  END
+  SELF.CWAssert(False)
+  SELF.ClearModuleDebuger()
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.MatchAssertMsg          PROCEDURE(UNSIGNED LineNumber, STRING filename, STRING argMSG)              !added Aug,7 2005!
+Idx       LONG,AUTO
+
+  CODE
+  IF ~(SELF.AssertMessagesQ &= NULL)
+    !SELF.Message('DebugerClass.MatchAssertMsg, RECORDS(SELF.AssertMessagesQ)['& RECORDS(SELF.AssertMessagesQ) &'] argMSG['& argMSG &']')
+    LOOP Idx = 1 TO RECORDS(SELF.AssertMessagesQ)
+      GET(SELF.AssertMessagesQ,Idx)
+      SELF.Message('DebugerClass.MatchAssertMsg Idx['& Idx &'] SELF.AssertMessagesQ.szMSG['& SELF.AssertMessagesQ.szMSG &'] SELF.AssertMessagesQ.MatchMode['& SELF.AssertMessagesQ.MatchMode &'] Action['& SELF.AssertMessagesQ.Action &']')
+      IF MATCH(argMSG, SELF.AssertMessagesQ.szMSG , SELF.AssertMessagesQ.MatchMode)
+        RETURN SELF.AssertMessagesQ.Action
+      END
+    END
+  END
+  SELF.Message('DebugerClass.MatchAssertMsg  NO MATCH')
+  CLEAR(SELF.AssertMessagesQ)
+  RETURN AssertMsgAction:NoMatch
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.Message                  PROCEDURE(STRING ArgBody,<STRING ArgHeader>,BYTE ArgShowMessage,BYTE ArgForceDebug)
+LOC:Altmsg     LIKE(SELF.ThisMsg)                                     !side-effect Argument into ShowMessageWindow
+
+  CODE
+  IF SELF.DebugActive OR ArgForceDebug
+    IF ArgShowMessage
+      SELF.ShowMessageWindow(ArgBody,ArgHeader)
+    END
+    SELF.ThisMsg = SELF.Debugfilter                                             & |
+                   SELF.PgmName                                        & ' - '  & |
+                   CHOOSE(OMITTED(ArgHeader) = True,'',CLIP(ArgHeader) & ' - ') & |
+                   CHOOSE(SELF.DelayActive = True, CLIP(SELF.DelayBody), '') & ArgBody
+    OutputDebugString (SELF.ThisMsg)                                      ! send the Debug message to the viewer
+    !ODS_RAD (SELF.ThisMsg) ! RA.2018.11.20: Changed this since there is no CR,LF out of OutputDebugString
+    IF SELF.Duplicates <> 0
+      IF SELF.LastMsg <> SELF.ThisMsg
+        SELF.LastMsg  = SELF.ThisMsg
+        SELF.NumberSame  = 0
+      ELSE
+        SELF.NumberSame += 1
+        IF SELF.NumberSame % SELF.Duplicates = 0
+          SELF.ShowMessageWindow('A series of ' & SELF.NumberSame & ' duplicate Debug messages have been issued',ArgHeader)
+        END
+      END
+    END
+    SELF.DelayActive = False
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.PrintEvent                PROCEDURE(<STRING ArgHeader>,<BYTE ArgForceDebug>,BYTE xDetail=False)     !to mimic 'WslDebug$PrintEvent')
+  CODE
+  IF ~xDetail
+    SELF.Message(SELF.GetEventDescr() & '<32>' & SELF.GetFEQDescr(FIELD()) & '<32>(Field:'& FIELD() &')', ArgHeader,,ArgForceDebug)
+  ELSE
+    SELF.Message(FORMAT(SELF.GetEventDescr(),@s20) & |
+                 ' Field('& Self.GetFEQDescr() & ' ='& FIELD() &')' & |
+                 ' Focus('& Self.GetFEQDescr(FOCUS()) & ' ='& FOCUS() &')' & |
+                 ' Selected('& Self.GetFEQDescr(SELECTED()) & ' ='& SELECTED() &')' & |
+                 ' KeyCode('& KeyCode() &')' & |
+                 ' Error('& ErrorCode() &': ' & CLIP(ERROR()) &')' & |
+                 ' Thread('& THREAD() &')' & '', argHeader,,argForceDebug)
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ProcEnter       PROCEDURE(STRING pProcName, <BYTE pFlag>, <BYTE pForce>, <BYTE pTimeOnly>) 
+  CODE
+  IF SELF.ProcTime = True 
+    PRQ:ProcName = pProcname
+    GET(ProcQue,PRQ:ProcName)
+    IF ErrorCode() <> 0 
+      CLEAR(ProcQue)
+      PRQ:ProcName = pProcName
+      PRQ:StartTime = CLOCK()
+      PRQ:StopTime = 0
+      PRQ:Number += 1
+      ADD(ProcQue)
+    ELSE
+      PRQ:StartTime = CLOCK()
+      PRQ:StopTime = 0
+      PRQ:Number += 1
+      PUT(ProcQue)
+    END
+  END
+  IF pTimeonly = True THEN RETURN.
+  IF SELF.ProcTrace = True OR pForce = True 
+    IF SELF.ThisModule = '' 
+      SELF.Message(pProcName,'(proc trace) Entering',pFlag,pForce)
+    ELSE
+      SELF.Message(pProcName,'(proc trace) Module ' & SELF.ThisModule & ' Entering',pFlag,pForce)
+    END
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ProcExit        PROCEDURE(STRING pProcName, <BYTE pFlag>, <BYTE pForce>, <BYTE pTimeOnly>)
+  CODE
+  IF SELF.ProcTime = True 
+    PRQ:ProcName = pProcname
+    GET(procque,PRQ:ProcName)
+    IF ErrorCode() <> 0 
+      CLEAR(procque)
+      PRQ:ProcName = pProcName
+      PRQ:StartTime = CLOCK()
+      PRQ:StopTime = CLOCK()
+      PRQ:Number = 1
+      PRQ:Elapsed = PRQ:StopTime - PRQ:StartTime
+      ADD(ProcQue)
+    ELSE
+      PRQ:StopTime = CLOCK()
+      PRQ:Elapsed += PRQ:StopTime - PRQ:StartTime
+      PUT(ProcQue)
+    END
+  END
+  IF pTimeonly = True THEN RETURN.
+  IF SELF.proctrace = True OR pForce = True 
+    IF SELF.Thismodule = '' 
+      SELF.Message(pProcName,'(proc trace) Leaving',pFlag,pForce)
+    ELSE
+      SELF.Message(pProcName,'(proc trace) Module ' & SELF.ThisModule & ' Leaving',pFlag,pForce)
+    END
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetAssertHook             PROCEDURE
+  CODE
+  SYSTEM{PROP:AssertHook} = ADDRESS(MyAssertHook)
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetAssertHook2            PROCEDURE
+  CODE
+  SYSTEM{PROP:AssertHook2} = ADDRESS(MyAssertHook2)
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetDumpQASCII             PROCEDURE(BYTE argNewValue)             !enumerated: DEBUGER:ASCII_*
+  CODE
+  CASE argNewValue
+  OF DEBUGER:ASCIINever
+  OROF DEBUGER:ASCIIPrompt
+  OROF DEBUGER:ASCIINoPrompt
+    SELF.DumpQueASCIIByDefault = argNewValue
+  ELSE
+    MESSAGE('Invalid new value for SELF.DumpQASCII['& argNewValue &']','Programmer Error')
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetDumpQFileName          PROCEDURE(STRING argNewFname)  !added Jan/12/05 MG
+  CODE
+  SELF.DumpQueDefaultFileName = argNewFname
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetFilter                 PROCEDURE(STRING xString)
+  CODE
+  SELF.DebugFilter = xString                                          !String can be any length and even blank to turn off filtering
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.SetModuleDebuger          PROCEDURE
+QPtr      LONG,AUTO                                                   !Init'd in top of LOOP
+
+  CODE
+  LOOP QPtr = RECORDS(DebugersQ) TO 1 BY -1
+    GET(DebugersQ,QPtr)
+    IF DebugersQ.Debuger &= SELF
+!      ODS_RAD('`DebugerClass.SetModuleDebuger -- returning, SELF already present Records(DebugersQ)['& records(DebugersQ) &']  SELF['& ADDRESS(SELF) &']  Pointer['& POINTER(DebugersQ) &']')
+      RETURN
+    END
+  END
+  DebugersQ.Debuger &= SELF
+  ADD(DebugersQ)
+  !ODS_RAD('`DebugerClass.SetModuleDebuger pgmname['& SELF.pgmname &'] Records(DebugersQ)['& RECORDS(DebugersQ) &']  SELF['& ADDRESS(SELF) &']  Pointer['& POINTER(DebugersQ) &']')
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ShowControl  PROCEDURE(*WINDOW xWin, LONG xFEQ)
+  CODE
+  SELF.Message('FEQ['& xFEQ &']'  & | 
+               '   AT('  & xWin$xFEQ{Prop:AT,1} & ','  |
+                         & xWin$xFEQ{Prop:AT,2} & ','  |
+                         & xWin$xFEQ{Prop:AT,3} & ','  |
+                         & xWin$xFEQ{Prop:AT,4} & ')' & |
+               '   Text['& xWin$xFEQ{Prop:Text} & ']' & |
+               '   Type['& xWin$xFEQ{Prop:Type} & ']=['& SELF.DescribeType(xWin$xFEQ{Prop:Type}) &']' & | 
+               '   Hide['& xWin$xFEQ{Prop:Hide} & ']' & |
+               '')
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ShowMessageWindow         PROCEDURE(STRING ArgBody, STRING ArgHeader)
+  COMPILE('*Debug*',_Debug_)
+Debuger:BUTTONLIST EQUATE('&Continue|&Halt|&Fast Debug')                  !END-COMPILE('*Debug*',_Debug_)
+  OMIT('*Debug*',_Debug_)
+Debuger:BUTTONLIST EQUATE('&Continue|&Halt')                              !END-OMIT('*Debug*',_Debug_)
+
+  CODE
+  IF SELF.ShowMessageWindowBeep
+    BEEP(BEEP:SystemExclamation)
+  END
+  CASE MESSAGE(ArgBody,SELF.PgmName & CHOOSE(LEN(CLIP(ArgHeader)) = 0,'', ' - ' & ArgHeader), ICON:Exclamation, Debuger:BUTTONLIST)
+  OF 1; !do nothing                                                       ! Name: &OK  (Default)
+  OF 2
+    SELF.Message('Program Halted -')
+    HALT()                                                                ! Name: &Abort
+  OF 3
+    SELF.Message('Calling system debugger...')                            ! Best results are Clarion debugger as system debugger in this case
+    DebugBreak()                                                          ! Name: Debug
+  END                                                                     ! end CASE MESSAGE(ArgBody,SELF.PgmName ...
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ShowTimer       PROCEDURE(STRING pProcName,<BYTE pClear>)
+  CODE
+  IF SELF.ProcTime = True
+    PRQ:ProcName = pProcname
+    GET(Procque,PRQ:ProcName)
+    IF ErrorCode() <> 0 
+      CLEAR(procque)
+      PRQ:ProcName = pProcName
+      PRQ:StartTime = CLOCK()
+      PRQ:StopTime = CLOCK()
+      PRQ:Number = 1
+      PRQ:Elapsed = PRQ:StopTime - PRQ:StartTime
+      ADD(procque)
+    ELSE
+      PRQ:StopTime = CLOCK()
+      PRQ:Elapsed += PRQ:StopTime - PRQ:StartTime
+      PUT(ProcQue)
+    END
+    PRQ:AvgTime = PRQ:Elapsed / PRQ:Number
+    SELF.Message('Total ms. ' & PRQ:Elapsed & ' Avg ms. ' & PRQ:AvgTime & ' Use Count ' & PRQ:Number,PRQ:ProcName & '<09h>')
+    IF pclear = True 
+      DELETE(ProcQue)
+    END
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.ShowTimes       PROCEDURE(<BYTE pClear>)
+Idx   LONG,AUTO
+
+  CODE
+  IF RECORDS(procque) > 0 
+    SORT(ProcQue,PRQ:ProcName)
+    SELF.Message('----- Interim Debuger Timings -----')
+    LOOP Idx = 1 TO RECORDS(ProcQue)
+      GET(ProcQue,Idx)
+      PRQ:AvgTime = PRQ:Elapsed / PRQ:Number
+      SELF.Message('Total ms. ' & PRQ:Elapsed & ' Avg ms. ' & PRQ:AvgTime & ' Use Count ' & PRQ:Number,PRQ:ProcName & '<09h>')
+    END
+  END
+  IF pClear = True 
+    FREE(procque)
+    SELF.Message('Debuger Timings Cleared')
+  END
+
+!-----------------------------------------------------------------------------------------!
+DebugerClass.StartTimer      PROCEDURE(STRING pProcname,<BYTE pFlag>, <BYTE pForce>)
+  CODE
+  SELF.ProcEnter(pProcname,pflag,pforce,True)
+  
+!-----------------------------------------------------------------------------------------!
+DebugerClass.StopTimer       PROCEDURE(STRING pProcname,<BYTE pFlag>, <BYTE pForce>)
+  CODE
+  SELF.ProcExit(pProcname,pflag,pforce,True)
+
+!-----------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------------!
+DebugerAutoInit.Construct         PROCEDURE()
+szDebug   CSTRING('DebugerAutoInit.Construct')
+   CODE
+   OutputDebugString(szDebug)
+   SELF.Init('AutoInit',DEBUGER:Enabled,,DEBUGER:ClearCMDLine)
+!-----------------------------------------------------------------------------------------!
+DebugerAutoInit.Destruct         PROCEDURE()
+szDebug   CSTRING('DebugerAutoInit.Destruct')
+   CODE
+   OutputDebugString(szDebug)
+
+!-----------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------------!
+MyAssertHook                      PROCEDURE(STRING filename,UNSIGNED LineNumber)
+  CODE
+!  ASSERT(0,eqDBG)
+  
+!-----------------------------------------------------------------------------------------!
+MyAssertHook2                     PROCEDURE(UNSIGNED LineNumber, STRING FileName, STRING ArgMSG)
+!!Remove these comments once transferred to reference doc.
+!!
+!Note: ASSERT will only call this procedure if you have compiled with Debugging On or asserts=>on
+  !FYI: I found doc. re: asserts on in the C60help.hlp under ASSERT()
+  !Useage:   Assert(0,eqDBG&'Message to display')
+  !Purpose:  Will add MODULE/LineNumber to output
+  !          also makes it easy to call the debuger, from modules with an empty member, hence no debuger instance in scope
+  !         Aug 8, 2005 - added .MatchAssertMsg logic, moved GPF logic to a routine
+  !NOTE: ModuleDebuger is set in SetModuleDebuger() called via Init()
+  !      there could be problems when there are multiple debuger classes around.
+  !      especially since there is no stack used for the ModuleDebugger
+  !      problems: a) using the "wrong" debuger
+  !                b) the last debuger to call .SetModuleDebuger() has been de-instantiated, but other AssertHook2 is still in effect
+  !Replaced ModuleDebuger with DebugersQ.Debuger
+
+DEBUGMSG      BYTE,AUTO
+Matched       LONG,AUTO
+
+  CODE
+  IF LEN(argMSG) >= LEN(eqDBG) AND argMSG[1 : LEN(eqDBG)] = eqDBG
+    DebugMSG =  True
+    IF LEN(argMSG) = LEN(eqDBG)
+      argMSG = ''
+    ELSE
+      argMSG =  argMSG[LEN(eqDBG) + 1 : SIZE(argMSG)]
+     END
+  ELSE
+    DebugMSG =  False
+  END
+  IF ~(DebugersQ.Debuger &= NULL)
+    IF DebugMSG
+      DebugersQ.Debuger.Message('in['& CLIP(filename) &' @'& LineNumber &']  '& argMSG )
+    ELSE
+      Matched =  DebugersQ.Debuger.MatchAssertMsg(LineNumber, FileName, argMSG)
+      DebugersQ.Debuger.Message('DebugerClass, Matched['& Matched &']=['& DebugersQ.Debuger.DescribeAction(Matched) &'] Matched To['& DebugersQ.Debuger.AssertMessagesQ.szMSG &']')
+      IF DebugersQ.Debuger.AssertHookAction(Matched, LineNumber, FileName, argMSG) = 0
+        CASE Matched
+        OF AssertMsgAction:IGNORE
+          !do nothing
+        OF AssertMsgAction:AUTOGPF
+          DebugersQ.Debuger.Message('Assertion failed in['& CLIP(filename) &' @'& LineNumber &']  '& argMSG )
+          DO MyAssertHook2:GPFNOW
+        OF AssertMsgAction:NOMATCH
+        OROF AssertMsgAction:PROMPT
+          DebugersQ.Debuger.Message('Assertion failed in['& CLIP(filename) &' @'& LineNumber &']  '& argMSG )
+          DebugersQ.Debuger.ShowMessageWindow('Assertion failed in ['& CLIP(filename) &' @'& LineNumber &']'& CHOOSE(LEN(CLIP(argMSG))>0,'||'& CLIP(argMSG),''), 'ASSERT')
+        END                                                           !case Matched
+      END
+    END
+  ELSE
+    CASE MESSAGE('Assertion failed in ['& CLIP(FileName) &'] @['& LineNumber &']'& |
+                 CHOOSE(LEN(CLIP(argMsg))>0,'||'& CLIP(argMsg),''),               |
+                 'ASSERT', ICON:Exclamation, '&Continue|&Halt',1)
+    OF 1
+      !Do nothing
+    OF 2
+      DO MyAssertHook2:GPFNOW
+     END 
+  END
+!----------------------------------------------------
+MyAssertHook2:GPFNOW ROUTINE
+  SYSTEM{PROP:AssertHook}  = 0                                        !Stop recursive calls into assert handler
+  SYSTEM{PROP:AssertHook2} = 0                                        !Stop recursive calls into assert handler
+  DebugBreak()                                                        !Perform "safe" GPF
+
+!-----------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------------!
+ODS_RAD             PROCEDURE(STRING Msg)
+!Helper function, to be used internally to the class when the class itself for debugging the class
+sz        &CSTRING
+  CODE
+  sz &= NEW CSTRING(LEN(Msg) + 3)                   ! RA.2018.11.30: +1 -> +3
+  sz  =            CLIP(Msg) & '<13,10,0>'          ! RA.2018.11.30: Msg -> Msg & '<13,10,0>'
+  OutputDebugString(sz)
+  DISPOSE(sz)
+
+

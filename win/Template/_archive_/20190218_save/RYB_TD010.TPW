@@ -1,0 +1,123 @@
+#!-----------------------------------------------------------------------------------------------------
+#!-----------------------------------------------------------------------------------------------------
+#!-----------------------------------------------------------------------------------------------------
+#!----------------------------------------------------------------------------------------------------- 
+#GROUP(%ExplainTD)
+#PREPARE
+  #IF(NOT VAREXISTS(%ExplainTD01))
+    #DECLARE(%ExplainTD01)
+  #ENDIF
+  #!
+  #SET(%ExplainTD01, '')
+  #SET(%ExplainTD01, %ExplainTD01 & 'The Thread Debug (TD) Template Collection uses DebugView++ to trace debug Clarion applications. It uses the class')
+  #SET(%ExplainTD01, %ExplainTD01 & ' construct and destruct methods, template embed points, and manually added trace code to acomplish this task.')
+  #SET(%ExplainTD01, %ExplainTD01 & '<13,10><13,10>')
+  #SET(%ExplainTD01, %ExplainTD01 & 'This template has been tested with the ABC template chain.')
+  #SET(%ExplainTD01, %ExplainTD01 & '')
+  #!
+  #IF(NOT VAREXISTS(%ExplainTD02))
+    #DECLARE(%ExplainTD02)
+  #ENDIF
+  #!
+  #SET(%ExplainTD02, '')
+  #SET(%ExplainTD02, %ExplainTD02 & 'When UltimateDebug decided to go with a local class rather that a global class it broke some code')
+  #SET(%ExplainTD02, %ExplainTD02 & ' items that were being worked on. At that point it was decided to fork UltimateDebug and create a')
+  #SET(%ExplainTD02, %ExplainTD02 & ' different debug class that would handle both global and local level class objects.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' Additionally there was a need to start tracking thread with nesting level for all procedures and')
+  #SET(%ExplainTD02, %ExplainTD02 & ' some things needed clean-up and additional testing. So the Thread Debug (TD) template collection')
+  #SET(%ExplainTD02, %ExplainTD02 & ' was created.')
+  #SET(%ExplainTD02, %ExplainTD02 & '<13,10><13,10>')
+  #SET(%ExplainTD02, %ExplainTD02 & 'This was not done in a vacuum. This implementation builds on the work of many individuals that have')
+  #SET(%ExplainTD02, %ExplainTD02 & ' enhanced the Clarion debugging tools and environment over the years. Code has been copied from many')
+  #SET(%ExplainTD02, %ExplainTD02 & ' authors and these classes and templates are a collection of many hours of work by many individuals.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' Class code was used from Mark Goldberg''s debuger, and UltimateDebug. Template code was used')
+  #SET(%ExplainTD02, %ExplainTD02 & ' from the original UltimateDebug template class and UltimateDebug template contributions.')
+  #SET(%ExplainTD02, %ExplainTD02 & '<13,10><13,10>')
+  #SET(%ExplainTD02, %ExplainTD02 & 'One goal of the re-write, was to combine the methods of the Debuger and UltimateDebug to be')
+  #SET(%ExplainTD02, %ExplainTD02 & ' able to replace legacy debugging calls in several systems with one class that would handle it all.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' A side effect expected out of this work, was to unify the best posible techniques available from many')
+  #SET(%ExplainTD02, %ExplainTD02 & ' of the debug environments found for the Clarion language.')
+  #SET(%ExplainTD02, %ExplainTD02 & '<13,10><13,10>')
+  #SET(%ExplainTD02, %ExplainTD02 & 'Replacing the legacy calls for UltimateDebug (UD) and Debuger (DB) might take twists and turns depending')
+  #SET(%ExplainTD02, %ExplainTD02 & ' on how you have created manual code and how you use either or both classes.')
+  #!SET(%ExplainTD02, %ExplainTD02 & ' To give the most flexibility for the posibilities there are three global classes and three local classes.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' To give the most flexibility for the posibilities there is one global class and three local classes.')
+  #SET(%ExplainTD02, %ExplainTD02 & '<13,10><13,10>')
+  #SET(%ExplainTD02, %ExplainTD02 & 'For example: Your code has both UltimateDebug (UD) and Debuger (DB) hand coded statemements.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' The strategy at first might be to use all three global classes to define the TD, UD, and DB global classes')
+  #SET(%ExplainTD02, %ExplainTD02 & ' and as you get time, replace the UD and DB class objects with the TD class object. That might be')
+  #SET(%ExplainTD02, %ExplainTD02 & ' a rather conservative approach. A posible faster approach is to convert the application to a TXA, and edit')
+  #SET(%ExplainTD02, %ExplainTD02 & ' everything that is an ''UD.'' and ''DB.'' to a ''TD.'' Then convert back the TXA, to an application.')
+  #SET(%ExplainTD02, %ExplainTD02 & ' It is your choice. And please consider the approach, as to the posible results you are working to achieve.')
+  #!
+  #IF(NOT VAREXISTS(%ExplainTD03))
+    #DECLARE(%ExplainTD03)
+  #ENDIF
+  #!
+  #SET(%ExplainTD03, '')
+  #SET(%ExplainTD03, %ExplainTD03 & 'There is always one Application GLOBAL Thread Debug object and')
+  #SET(%ExplainTD03, %ExplainTD03 & ' one Procedure LOCAL Thread Debug object for each procedure.')
+  #SET(%ExplainTD03, %ExplainTD03 & ' The local TD object will allow reporting of the correct thread location for each procedure.')
+  #SET(%ExplainTD03, %ExplainTD03 & ' The global TD object will allow the collection of information accross all procedures within')
+  #SET(%ExplainTD03, %ExplainTD03 & ' all applications to be available from that one global object.')
+  #SET(%ExplainTD03, %ExplainTD03 & '')
+  #SET(%ExplainTD03, %ExplainTD03 & '')
+  #SET(%ExplainTD03, %ExplainTD03 & '')
+#ENDPREPARE
+#!-----------------------------------------------------------------------------------------------------
+#GROUP(%TabExplain)
+#TAB('Purpose')
+#BOXED('Purpose'),AT(,,454),PROP(PROP:FontStyle,700),PROP(PROP:FontColor,0C79A3H)
+  #DISPLAY(''),AT(,,,1)
+  #DISPLAY(%ExplainTD01),AT(,,436,34)
+#ENDBOXED
+#BOXED('Narrative'),AT(,,454),PROP(PROP:FontStyle,700),PROP(PROP:FontColor,0C79A3H)
+  #DISPLAY(''),AT(,,,1)
+  #DISPLAY(%ExplainTD02),AT(,,436,194)
+#ENDBOXED
+#ENDTAB
+#!-----------------------------------------------------------------------------------------------------
+#GROUP(%DefaultObjects)
+#BOXED('Default TD Objects'),AT(,,454),PROP(PROP:FontStyle,700),PROP(PROP:FontColor,0C79A3H)
+  #DISPLAY(''),AT(,,,1)
+  #DISPLAY(%ExplainTD03),AT(,,436,24)
+#ENDBOXED
+#!-----------------------------------------------------------------------------------------------------
+#GROUP(%ContributeTD)
+#PREPARE
+  #IF(NOT VAREXISTS(%ContributeTD01))
+    #DECLARE(%ContributeTD01)
+  #ENDIF
+  #!
+  #SET(%ContributeTD01, '')
+  #SET(%ContributeTD01, %ContributeTD01 & 'There have been many contributions over the years. If there has been something added here in the')
+  #SET(%ContributeTD01, %ContributeTD01 & ' class or the template that has been contributed or used, credit is given to the individual.')
+  #SET(%ContributeTD01, %ContributeTD01 & ' If there is someone that has not been mentioned, let us know and we will add them to the list.')
+  #SET(%ContributeTD01, %ContributeTD01 & '<13,10><13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Mark Riffey<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Roberto Artigas<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Mike Hanson<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Mark Goldberg<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>John Hickey<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Dave Harms<13,10>')
+  #SET(%ContributeTD01, %ContributeTD01 & '<9>Skip Williams<9><9><9>See: http://www.clarionmag.com/cmag/v5/v5n01debuger.html')
+  #SET(%ContributeTD01, %ContributeTD01 & '<13,10><13,10>') 
+  #SET(%ContributeTD01, %ContributeTD01 & 'Individual contributions are normally listed in the source code with the authors name in the code.')
+  #SET(%ContributeTD01, %ContributeTD01 & ' Some of the authors sign or initial their code as a best practice. Other authors style of code')
+  #SET(%ContributeTD01, %ContributeTD01 & ' is noticeable and there is no mistaking their code.')
+  #SET(%ContributeTD01, %ContributeTD01 & ' Most of the contributors have at one time or another done a ClarionLive! webinar. And some of their')
+  #SET(%ContributeTD01, %ContributeTD01 & ' webinar code has become part of the debugging knowledge code base of the Clarion world.')
+  #SET(%ContributeTD01, %ContributeTD01 & ' Thank you ClarionLive! for providing the weekly webinar in which the Clarion community can participate.')
+#ENDPREPARE
+#!-----------------------------------------------------------------------------------------------------
+#GROUP(%TabContribute)
+#TAB('Contributors')
+#BOXED('Contributors'),AT(,,454),PROP(PROP:FontStyle,700),PROP(PROP:FontColor,0C79A3H)
+  #DISPLAY(''),AT(,,,1)
+  #DISPLAY(%ContributeTD01),AT(,,436,224)
+#ENDBOXED
+#ENDTAB
+#!-----------------------------------------------------------------------------------------------------
+#!-----------------------------------------------------------------------------------------------------
+#!-----------------------------------------------------------------------------------------------------
+#!-----------------------------------------------------------------------------------------------------

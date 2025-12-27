@@ -1,0 +1,479 @@
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! File Name:   UltimateDebug5.TPW
+#! Purpose:     Template add-on's to do procedure timing tracing.
+#! Author:      Copyright © 1999-2014 by Roberto Artigas. All rights reserved world wide.
+#!              Released under the Clarion Open Source License. (http://www.clarionmag.com/cmag/dospl.html)
+#! Changes:     Roberto Artigas
+#!  *   RA.2015.01.02   Begin creation of the trace timming extension
+#!  *   RA.2015.01.18   Working Version - BETA tester to beat up this puppy
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#EXTENSION(DebugTimingTotal, 'RA.2015.01.02: Debug Timing ALL procedures'),APPLICATION,REQ(UltimateDebugGlobal)
+#!--------------------------------------------------------------------
+#! Created By:  Roberto Artigas
+#! Modifications:
+#! 2015.01.14   Roberto Artigas
+#!  *   Added timing code to the tracing code by creating a new temmplate
+#! 2014.11.04   Roberto Artigas
+#!  *   Added GLOBAL ~%CLSkelAppDisable
+#! 2005.09.28   Roberto Artigas
+#!  *   Added #EMBED statements
+#!--------------------------------------------------------------------
+#DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('Version ' & %CLSkelTPLVersion),AT(10,10),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#DISPLAY('')
+#PROMPT('Generate Tracing Code ' , CHECK), %TraceCode, DEFAULT(1), AT(10)
+#DISPLAY('')
+#DISPLAY('')
+#SHEET,AT(,,288),HSCROLL
+#TAB('General')
+#BOXED(' Tracing and Timing Procedures '),AT(,,280)
+  #ENABLE(%TraceCode AND ~%CLSkelAppDisable)
+    #DISPLAY('')
+    #PROMPT('Show LOCAL Templates ', CHECK), %ShowLocalTemplates, DEFAULT(0), AT(10)
+    #DISPLAY('')
+    #PROMPT('Add Timing Code ' , CHECK), %TimingCode, DEFAULT(1), AT(10)
+    #ENABLE(%TimingCode)
+      #DISPLAY('')
+      #PROMPT('Global CLASS Name:', @S40),%QueueName,DEFAULT('gTimingQ'),AT(90,,190)
+      #DISPLAY('NOTE: This is the name of the GLOBAL timing class.'),AT(90)
+      #DISPLAY('')
+      #PROMPT('Global LOG Name:', @S40),%LogName,DEFAULT('_' & UPPER(%Application)),AT(90,,190)
+      #DISPLAY('NOTE: This the base LOG file name for the timing report.'),AT(90)
+      #DISPLAY('')
+      #!DISPLAY('')
+    #ENDENABLE
+  #ENDENABLE
+#ENDBOXED
+#ENDTAB
+#INSERT(%TabPurposeTracing5a)
+#INSERT(%TabInstructionsTracing5a)
+#INSERT(%TabPurposeTiming5a)
+#INSERT(%TabInstructionsTiming5a)
+#INSERT(%TabTesting5a)
+#ENDSHEET
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#AT(%BeforeGlobalIncludes),PRIORITY(0009)
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%AfterGlobalIncludes),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode)
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate a QUEUE for global timing as needed
+#AT(%GlobalData),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode)
+!UD: Debug Timing Total: BEGIN
+CSV_%[36]QueueName STRING('%LogName')%CLSkelDataExternal
+%[40]QueueName CLASS(TimingClass)%CLSkelDataExternal
+%[40]NULL END
+!UD: Debug Timing Total: END
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.08.02 - Generate as needed
+#AT(%DLLExportList),WHERE(%CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=1 AND %TraceCode AND ~%CLSkelAppDisable AND %TimingCode)
+  $CSV_%[36]QueueName @?
+  $%[40]QueueName @?
+#ENDAT
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! RA.2015.01.18 - Generate as needed
+#! UD: CLSkelMultiDLL = 0, CLSkelMultiDLLData = 0
+#! UD: CLSkelMultiDLL = 1, CLSkelMultiDLLData = 1
+#AT(%ProgramSetup),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode AND %CLSkelMultiDLL=0 AND %CLSkelMultiDLLData=0),PRIORITY(0001)
+!UD: Debug Timing Total: BEGIN
+!UD: CLSkelMultiDLL = %CLSkelMultiDLL, CLSkelMultiDLLData = %CLSkelMultiDLLData
+%QueueName.Init(CSV_%QueueName)
+!UD: Debug Timing Total: END
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%ProgramSetup),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode AND %CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=1),PRIORITY(0001)
+!UD: Debug Timing Total: BEGIN
+!UD: CLSkelMultiDLL = %CLSkelMultiDLL, CLSkelMultiDLLData = %CLSkelMultiDLLData
+%QueueName.Init(CSV_%QueueName)
+!UD: Debug Timing Total: END
+#ENDAT
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! RA.2015.01.18 - Generate as needed
+#! UD: CLSkelMultiDLL = 0, CLSkelMultiDLLData = 0
+#! UD: CLSkelMultiDLL = 1, CLSkelMultiDLLData = 1
+#AT(%ProgramEnd),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode AND %CLSkelMultiDLL=0 AND %CLSkelMultiDLLData=0),PRIORITY(9999)
+!UD: Debug Timing Total: BEGIN
+!UD: CLSkelMultiDLL = %CLSkelMultiDLL, CLSkelMultiDLLData = %CLSkelMultiDLLData
+%QueueName.Kill()
+!UD: Debug Timing Total: END
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%ProgramEnd),WHERE(%TraceCode AND ~%CLSkelAppDisable AND %TimingCode AND %CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=1),PRIORITY(9999)
+!UD: Debug Timing Total: BEGIN
+!UD: CLSkelMultiDLL = %CLSkelMultiDLL, CLSkelMultiDLLData = %CLSkelMultiDLLData
+%QueueName.Kill()
+!UD: Debug Timing Total: END
+#ENDAT
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!#DISPLAY('Copyright © 1999-2015 by Roberto Artigas')
+#!---------------------------------------------------------------------
+#! %ProcedureTemplate = 'Source'
+#! %ProcedureTemplate = 'Window'
+#! %ProcedureTemplate = 'Frame'
+#! %ProcedureTemplate = 'Process'
+#! %ProcedureTemplate = 'Report'
+#! %ProcedureTemplate = 'Todo'
+#!---------------------------------------------------------------------
+#AT(%DataSection,%ActiveTemplateInstance),PRIORITY(0005)
+ #CASE(UPPER(%ProcedureTemplate))
+ #OF  ('TODO')
+ #OROF('SOURCE')
+ #OROF('WINDOW')
+ #OROF('FRAME')
+ #OROF('PROCESS')
+ #OROF('REPORT')
+! === %ProcedureTemplate ===
+ #ELSE
+! ??? %ProcedureTemplate ???
+ #ENDCASE
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+UD_TRACE EQUATE(1)  #<! Ultimate Debug TRACE is ON
+ #ELSE
+UD_TRACE EQUATE(0)  #<! Ultimate Debug TRACE is OFF
+ #ENDIF
+ #IF(%TraceCode AND %TimingCode AND ~%CLSkelAppDisable)
+rStarDate REAL(0.0) #<! Timing code variable
+oDateTime StarDateClass #<! Timing code object
+ #ENDIF
+ #CASE(UPPER(%ProcedureTemplate))
+ #OF  ('TODO')
+ #OROF('SOURCE')
+ #OROF('WINDOW')
+ #OROF('FRAME')
+ #OROF('PROCESS')
+ #OROF('REPORT')
+! === %ProcedureTemplate ===
+ #ELSE
+! ??? %ProcedureTemplate ???
+ #ENDCASE
+#ENDAT
+#!---------------------------------------------------------------------
+#! %ProcedureTemplate = 'Source'
+#!---------------------------------------------------------------------
+#AT(%ProcessedCode),PRIORITY(0005)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%TimingCode)
+  rStarDate = oDateTime.GetStarDate() #<! Set up procedure entry date+time
+  #ENDIF
+  %CLSkelClass.DebugEntry('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug ENTRY %ProcedureTemplate
+ #ENDIF
+ #IF(%TraceCode AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+  #IF(ITEMS(%ActiveTemplate))
+  %CLSkelClass.DebugLevel('----------------> LOCAL TEMPLATES')
+   #FOR(%ActiveTemplate)
+  %CLSkelClass.DebugLevel('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+   #ENDFOR
+  %CLSkelClass.DebugLevel('---------------->')
+  #ENDIF
+! === %ProcedureTemplate ===
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%ProcessedCode),PRIORITY(9995)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%TimingCode)
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+  %QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+! === %ProcedureTemplate ===
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! %ProcedureTemplate = 'Window'
+#! %ProcedureTemplate = 'Frame'
+#! %ProcedureTemplate = 'Process'
+#! %ProcedureTemplate = 'Report'
+#! %ProcedureTemplate = 'Todo'
+#!---------------------------------------------------------------------
+#AT(%WindowManagerMethodCodeSection,'Init','(),BYTE'),PRIORITY(0005)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%TimingCode)
+rStarDate = oDateTime.GetStarDate() #<! Set up procedure entry date+time
+  #ENDIF
+%CLSkelClass.DebugEntry('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug ENTRY %ProcedureTemplate
+ #ENDIF
+ #IF(%TraceCode AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+  #IF(ITEMS(%ActiveTemplate))
+%CLSkelClass.DebugLevel('----------------> LOCAL TEMPLATES')
+   #FOR(%ActiveTemplate)
+%CLSkelClass.DebugLevel('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+   #ENDFOR
+%CLSkelClass.DebugLevel('---------------->')
+  #ENDIF
+! === %ProcedureTemplate ===
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%WindowManagerMethodCodeSection,'Init','(),BYTE'),PRIORITY(5090)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+  #COMMENT(90)
+! === %ProcedureTemplate ===
+IF ReturnValue THEN
+  #IF(%TimingCode)
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) INIT Short-Stop [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+  %QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) INIT Short-Stop') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+  RETURN ReturnValue
+END
+! === %ProcedureTemplate ===
+  #COMMENT(60)
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%WindowManagerMethodCodeSection,'Kill','(),BYTE'),PRIORITY(5090)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+  #COMMENT(90)
+! === %ProcedureTemplate ===
+IF ReturnValue THEN
+  #IF(%TimingCode)
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) KILL Short-Stop [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+  %QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+  %CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) KILL Short-Stop') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+  RETURN ReturnValue
+END
+! === %ProcedureTemplate ===
+  #COMMENT(60)
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%WindowManagerMethodCodeSection,'Kill','(),BYTE'),PRIORITY(9995)
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%TimingCode)
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+%QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+! === %ProcedureTemplate ===
+ #ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! %ProcedureTemplate = ???
+#!---------------------------------------------------------------------
+#! 2015.04.15   Roberto Artigas
+#!   *  Added LEGACY support (modifying the original source back)
+#! 2014.04.14   Roberto Artigas
+#!   *  This used to be the original template source that handled ABC and LEGACY code.
+#!      I have made modification to handle any UNKNOWN %ProcedureTemplate types.
+#!      The key thing is the %ProcedureInitialize and %EndOfProcedure EMBED points.
+#!      When I research this way back, those were common EMBED points for everything.
+#!---------------------------------------------------------------------
+#AT(%ProcedureInitialize),PRIORITY(0005)
+#IF(%CLSkelFamily = 'ABC')
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+  #CASE(UPPER(%ProcedureTemplate))
+  #OF  ('TODO')
+  #OROF('WINDOW')
+  #OROF('FRAME')
+  #OROF('PROCESS')
+  #OROF('REPORT')
+  #ELSE
+! === %ProcedureTemplate ===
+   #IF(%TimingCode)
+rStarDate = oDateTime.GetStarDate() #<! Set up procedure entry date+time
+   #ENDIF
+%CLSkelClass.DebugEntry('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug ENTRY %ProcedureTemplate
+  #ENDCASE
+#ENDIF
+ #IF(%TraceCode AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+  #IF(ITEMS(%ActiveTemplate))
+   #CASE(UPPER(%ProcedureTemplate))
+   #OF  ('TODO')
+   #OROF('WINDOW')
+   #OROF('FRAME')
+   #OROF('PROCESS')
+   #OROF('REPORT')
+   #ELSE
+#! #EMBED(%DebugTraceProcedureBefore,'DebugTraceProcedure: Before TRACE statement')
+%CLSkelClass.Debug('----------------> LOCAL TEMPLATES')
+   #FOR(%ActiveTemplate)
+%CLSkelClass.Debug('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+   #ENDFOR
+%CLSkelClass.Debug('---------------->')
+! === %ProcedureTemplate ===
+   #ENDCASE
+  #ENDIF
+ #ENDIF
+#!---------------------------------------------------------------------
+#ELSE                                               #! RA.2014.04.15 - LEGACY support
+#!---------------------------------------------------------------------
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%TimingCode)
+rStarDate = oDateTime.GetStarDate() #<! Set up procedure entry date+time
+  #ENDIF
+%CLSkelClass.DebugEntry('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug EXITS %ProcedureTemplate
+ #ENDIF
+ #IF(%TraceCode AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+  #IF(ITEMS(%ActiveTemplate))
+#! #EMBED(%DebugTraceProcedureBefore,'DebugTraceProcedure: Before TRACE statement')
+%CLSkelClass.Debug('----------------> LOCAL TEMPLATES')
+   #FOR(%ActiveTemplate)
+%CLSkelClass.Debug('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+   #ENDFOR
+%CLSkelClass.Debug('---------------->')
+! === %ProcedureTemplate ===
+  #ENDIF
+ #ENDIF
+#ENDIF
+#ENDAT
+#!---------------------------------------------------------------------
+#! RA.2014.04.15 - Added LEGACY support
+#!---------------------------------------------------------------------
+#AT(%EndOfProcedure),PRIORITY(9995)
+#IF(%CLSkelFamily = 'ABC')
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+  #CASE(UPPER(%ProcedureTemplate))
+  #OF  ('TODO')
+  #OROF('WINDOW')
+  #OROF('FRAME')
+  #OROF('PROCESS')
+  #OROF('REPORT')
+  #ELSE
+! === %ProcedureTemplate ===
+  #IF(%ProcedureTemplate='Frame')
+  #ENDIF
+  #IF(%TimingCode)
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+%QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+! === %ProcedureTemplate ===
+  #ENDCASE
+ #ENDIF
+#!---------------------------------------------------------------------
+#ELSE                                               #! RA.2014.04.15 - LEGACY support
+#!---------------------------------------------------------------------
+ #IF(%TraceCode AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  #IF(%ProcedureTemplate='Frame')
+  #ENDIF
+  #IF(%TimingCode)
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate) [' & oDateTime.FormatOneDayTime(oDateTime.CalcStardateDelta(rStarDate)) & ']') #<! Ultimate Debug EXITS %ProcedureTemplate
+%QueueName.Find('%Application-%Procedure',oDateTime.CalcStardateDelta(rStarDate))
+  #ELSE
+%CLSkelClass.DebugExit('%Application (%Module): %Procedure (%ProcedureTemplate)') #<! Ultimate Debug EXITS %ProcedureTemplate
+  #ENDIF
+! === %ProcedureTemplate ===
+ #ENDIF
+#END
+#ENDAT
+#!
+#!--------------------------------------------------------------------
+#GROUP(%TabPurposeTracing5a)
+#TAB('Tracing')
+  #DISPLAY('This option will insert ENTRY and EXITS debug statements into')
+  #DISPLAY('every procedure in Clarion<39>s generated source code.')
+  #DISPLAY('')
+  #DISPLAY('The debug message contains the application name, module name and')
+  #DISPLAY('procedure name. So you know the source file that contains the code.')
+  #DISPLAY('')
+  #DISPLAY('On the ABC WINDOW class it adds an ENTRY and EXITS debug message.')
+  #DISPLAY('')
+  #DISPLAY('The ENTRY is handled in <39>ThisWindow.Init<39>. Priority(0005).')
+  #DISPLAY('The EXITS is handled in <39>ThisWindow.Kill<39>. Priority(9995).')
+  #DISPLAY('')
+  #DISPLAY('In those methods, there are return statements in the middle of the')
+  #DISPLAY('code. An EXITS debug message is generated at PRIORITY(5090).')
+  #!DISPLAY('')
+#ENDTAB
+#!
+#!--------------------------------------------------------------------
+#GROUP(%TabPurposeTiming5a)
+#TAB('Timing')
+  #DISPLAY('This option will insert a LOCAL timing class and modify the EXITS')
+  #DISPLAY('debug statement for every procedure in Clarion<39>s generated source')
+  #DISPLAY('code by adding a [ddd:hh:mm:ss] at the end of the debug string.')
+  #DISPLAY('')
+  #DISPLAY('ddd = days, hh=hours, mm=minutes, and ss=seconds.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('')
+  #DISPLAY('At program end the GLOBAL timing class will have collected the total')
+  #DISPLAY('number of executions and total execution time for every procedure.')
+  #!DISPLAY('')
+  #DISPLAY('It will output a CSV file sorted by average execution time and number')
+  #DISPLAY('executions both in decending order .')
+  #DISPLAY('')
+  #DISPLAY('This will identify areas of your programs that might be performing')
+  #DISPLAY('poorly and might need refactoring.')
+  #!DISPLAY('')
+#ENDTAB
+#!
+#!--------------------------------------------------------------------
+#GROUP(%TabInstructionsTracing5a)
+#TAB('Instructions Tracing')
+  #DISPLAY('Generate Tracing Code'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('This turns ON and OFF the generate debug code to every procedure.')
+  #DISPLAY('')
+  #DISPLAY('When using the Trace ALL an equate is added to every procedure.')
+  #DISPLAY('UD_TRACE EQUATE(1), which is the value when the Trace ALL is ON.')
+  #DISPLAY('UD_TRACE EQUATE(0), which is the value when the Trace ALL is OFF.')
+  #DISPLAY('')
+  #DISPLAY('When using the CODE template for additional debug code beyond')
+  #DISPLAY('the ENTRY and EXITS that are automatically generated, if you turn')
+  #DISPLAY('the Trace ALL template OFF, the hand code will be preserved.')
+  #DISPLAY('')
+  #DISPLAY('Show LOCAL Tenmplates'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('This will add debug to show LOCAL active templates for procedures.')
+#ENDTAB
+#!
+#!--------------------------------------------------------------------
+#GROUP(%TabInstructionsTiming5a)
+#TAB('Instructions Timing')
+  #DISPLAY('Add Timing Code'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('This turns ON and OFF the timing debug code to every procedure.')
+  #DISPLAY('It controls the global variables and class for the timing process.')
+  #DISPLAY('')
+  #DISPLAY('Global CLASS Name'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('This is the name of the GLOBAL timing class.')
+  #DISPLAY('')
+  #DISPLAY('Global LOG Name'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('This is the base LOG file name for the timing report.')
+  #DISPLAY('The date, time, and CSV extension will be added to the name.')
+  #DISPLAY('')
+#ENDTAB
+#!
+#!---------------------------------------------------------------------
+#GROUP(%TabTesting5a)
+#TAB('Testing')
+  #DISPLAY('')
+  #DISPLAY('Tested 2015-01-18 with C9 and ABC templates.')
+  #DISPLAY('Tested 2015-01-18 with C9 and LEGACY templates.')
+  #DISPLAY('')
+  #DISPLAY('No other tests done.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('')
+#ENDTAB
+#!---------------------------------------------------------------------
+#GROUP(%DebugTimingTotalEnd)
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
