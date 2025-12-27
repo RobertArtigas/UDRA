@@ -1,8 +1,0 @@
-KeyState:Shift                        EQUATE(0100h) !Shift key is pressed
-KeyState:Ctrl                         EQUATE(0200h) !Ctrl key is pressed
-KeyState:Alt                          EQUATE(0400h) !Alt key is pressed
-KeyState:EnterOnNum                   EQUATE(0800h) !Num Pad Enter Key, n/a with MESSAGE()
-KeyState:CapsLock                     EQUATE(1000h) !Caps Lock is On
-KeyState:NumLock                      EQUATE(2000h) !Num Lock is On
-KeyState:ScrollLock                   EQUATE(4000h) !Scroll Lock is On
-KeyState:InsertKey                    EQUATE(8000h) !Insert Mode is On,
