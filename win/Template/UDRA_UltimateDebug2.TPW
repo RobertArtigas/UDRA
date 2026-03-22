@@ -84,7 +84,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%BeforeGlobalIncludes),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -205,7 +204,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%BeforeCategoryDLLInitCode,'ABC'),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -272,7 +270,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%BeforeCategoryDLLKillCode,'ABC'),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -339,7 +336,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%DLLInitCode),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -384,7 +380,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%BeforeInitGlobalDllObjects),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -429,7 +424,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%AfterEntryPointCodeStatement),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -524,7 +518,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%DictionaryConstruct),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -569,7 +562,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%BeforeDctInitialization),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -658,7 +650,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%DctInitStart),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -747,7 +738,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%GlobalMap),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -768,7 +758,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%AfterCreatingExportFile),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -829,7 +818,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%ShipList),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -850,7 +838,6 @@
  #ENDIF
 #ENDAT
 #!
-
 #!--------------------------------------------------------------------
 #AT(%GlobalData),PRIORITY(0005)
 #!--------------------------------------------------------------------
@@ -897,15 +884,15 @@
 #GROUP(%DebugTraceInitEnd)
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
-
-
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
-#EXTENSION(DebugTraceTotal, 'RA.2014.04.15: Debug Trace ALL procedures'),APPLICATION,REQ(UltimateDebugGlobal)
+#EXTENSION(DebugTraceTotal, 'RA.2020.03.21: Debug Trace ALL procedures'),APPLICATION,REQ(UltimateDebugGlobal)
 #!--------------------------------------------------------------------
 #! Created By:  Roberto Artigas
 #! Modifications:
+#! 2026.03.21   Roberto Artigas y Soler
+#!  *   Improve Enter/Exits around the Run method.
 #! 2018.03.09   Roberto Artigas
 #!	*   Splash is not handled properly it has both types of embeds.
 #! 2014.11.04   Roberto Artigas
@@ -925,9 +912,21 @@
 #BOXED(' Debug Trace Total '),AT(,,280)
   #ENABLE(~%CLSkelAppDisable)
     #DISPLAY('')
-    #PROMPT('Generate Trace Code ' , CHECK), %TraceCode, DEFAULT(1), AT(10)
+      #PROMPT('Generate Trace Code '      , CHECK), %TraceCode          , DEFAULT(1), AT(10)
+    #ENABLE(%FALSE)
+      #PROMPT('Generate Trace Code Run '  , CHECK), %TraceRun           , DEFAULT(0), AT(10)
+    #ENDENABLE
+    #PREPARE
+      #IF(%TraceCode=1)
+        #SET(%TraceCode, 1)
+        #SET(%TraceRun, 0)
+      #ELSE
+        #SET(%TraceCode, 0)
+        #SET(%TraceRun, 1)
+      #ENDIF
+    #ENDPREPARE
     #DISPLAY('')
-    #PROMPT('Show LOCAL Templates ', CHECK), %ShowLocalTemplates, DEFAULT(0), AT(10)
+    #PROMPT('Show LOCAL Templates '       , CHECK), %ShowLocalTemplates , DEFAULT(0), AT(10)
     #DISPLAY('')
   #ENDENABLE
 #ENDBOXED
@@ -936,17 +935,99 @@
 #INSERT(%TabInstructions2b)
 #INSERT(%TabTesting2b)
 #ENDSHEET
-
-
+#!
+#!------------------------------------------------------------------!
+#!------------------------------------------------------------------!
+#! 2026.03.21 RA: () Improve Enter/Exits around the Run method.     !
+#!------------------------------------------------------------------!
+#!------------------------------------------------------------------!
 #AT(%WindowManagerMethodCodeSection,'Run','(),BYTE'),PRIORITY(5)
+  #IF(%TraceRun AND ~%CLSkelAppDisable)
+%CLSkelClass.Enter('%Application.%ProgramExtension (%Module): %Procedure (%ProcedureTemplate)') #<! UDRA :ENTER %ProcedureTemplate
+    #CASE(UPPER(%ProcedureTemplate))
+    #OF  ('TODO')
+    #OROF('SOURCE')
+    #OROF('WINDOW')
+    #OROF('FRAME')
+    #OROF('PROCESS')
+    #OROF('REPORT')
+    #OROF('SPLASH')
+! === %ProcedureTemplate ===
+    #ELSE
+! ??? %ProcedureTemplate ???
+    #ENDCASE
 ! TESTME: 0005
+  #ENDIF
+  #IF(%TraceRun AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+    #IF(ITEMS(%ActiveTemplate))
+%CLSkelClass.DebugLevel('----------------> LOCAL TEMPLATES')
+      #FOR(%ActiveTemplate)
+%CLSkelClass.DebugLevel('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+      #ENDFOR
+%CLSkelClass.DebugLevel('---------------->')
+    #ENDIF
+  #ENDIF
 #ENDAT
+#!
 #AT(%WindowManagerMethodCodeSection,'Run','(),BYTE'),PRIORITY(9995)
+  #IF(%TraceRun AND ~%CLSkelAppDisable)
 ! TESTME: 9995
+    #CASE(UPPER(%ProcedureTemplate))
+    #OF  ('TODO')
+    #OROF('SOURCE')
+    #OROF('WINDOW')
+    #OROF('FRAME')
+    #OROF('PROCESS')
+    #OROF('REPORT')
+    #OROF('SPLASH')
+! === %ProcedureTemplate ===
+    #ELSE
+! ??? %ProcedureTemplate ???
+    #ENDCASE
+%CLSkelClass.Exits('%Application.%ProgramExtension (%Module): %Procedure (%ProcedureTemplate)') #<! UDRA :EXITS %ProcedureTemplate
+  #ENDIF
 #ENDAT
-
-
-
+#!---------------------------------------------------------------------
+#! %ProcedureTemplate = 'Source'
+#!---------------------------------------------------------------------
+#AT(%ProcessedCode),PRIORITY(0005)
+  #IF(%TraceRun AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  %CLSkelClass.Enter('%Application.%ProgramExtension (%Module): %Procedure (%ProcedureTemplate)') #<! UDRA :ENTER %ProcedureTemplate
+  #ENDIF
+  #IF(%TraceRun AND ~%CLSkelAppDisable AND %ShowLocalTemplates)
+    #IF(ITEMS(%ActiveTemplate))
+  %CLSkelClass.DebugLevel('----------------> LOCAL TEMPLATES')
+      #FOR(%ActiveTemplate)
+  %CLSkelClass.DebugLevel('Active Templates: %[18]ActiveTemplateType %ActiveTemplate ')
+      #ENDFOR
+  %CLSkelClass.DebugLevel('---------------->')
+    #ENDIF
+! === %ProcedureTemplate ===
+  #ENDIF
+#EMBED(%TraceSourceRunEnter,'%TraceSourceRunEnter: TraceSourceProcedureEnter')
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%ProcessedCode),PRIORITY(9995)
+  #IF(%TraceRun AND ~%CLSkelAppDisable)
+! === %ProcedureTemplate ===
+  %CLSkelClass.Exits('%Application.%ProgramExtension (%Module): %Procedure (%ProcedureTemplate)') #<! UDRA :EXITS %ProcedureTemplate
+! === %ProcedureTemplate ===
+  #ENDIF
+#EMBED(%TraceSourceRunExits,'%TraceSourceRunExits: TraceSourceProcedureExits')
+#ENDAT
+#!---------------------------------------------------------------------
+#AT(%ProcessedCode),PRIORITY(9998)
+  #IF(%TraceRun AND ~%CLSkelAppDisable)
+  RETURN    #<! UDRA: Generated
+  #ENDIF
+#EMBED(%TraceSourceRunReturn,'%TraceSourceRunReturn: TraceSourceProcedureReturn')
+#ENDAT
+#!------------------------------------------------------------------!
+#!------------------------------------------------------------------!
+#!------------------------------------------------------------------!
+#!------------------------------------------------------------------!
+#!
 #!#DISPLAY('Copyright © 1999-2015 by Roberto Artigas')
 #!---------------------------------------------------------------------
 #! %ProcedureTemplate = 'Source'
@@ -965,12 +1046,13 @@
  #OROF('FRAME')
  #OROF('PROCESS')
  #OROF('REPORT')
- #OROF('SPLASH')														#! RA.2018.03.09 - Added
+ #OROF('SPLASH')                                #! RA.2018.03.09 - Added
 ! === %ProcedureTemplate ===
  #ELSE
 ! ??? %ProcedureTemplate ???
  #ENDCASE
- #IF(%TraceCode AND ~%CLSkelAppDisable)
+ #!IF(%TraceCode AND ~%CLSkelAppDisable)
+ #IF((%TraceCode OR %TraceRun) AND ~%CLSkelAppDisable)
 UD_TRACE EQUATE(1)  #<! Ultimate Debug TRACE is ON
  #ELSE
 UD_TRACE EQUATE(0)  #<! Ultimate Debug TRACE is OFF
@@ -1225,7 +1307,6 @@ END
 #GROUP(%DebugTraceTotalEnd)
 #!---------------------------------------------------------------------
 #!---------------------------------------------------------------------
-
 #!-----------------------------------------------------------------------
 #!-----------------------------------------------------------------------
 #!-----------------------------------------------------------------------
@@ -1263,7 +1344,6 @@ COMPILE('!***TRACE***', UD_TRACE)
 #GROUP(%DebugTraceCodeEnd)
 #!-----------------------------------------------------------------------
 #!-----------------------------------------------------------------------
-
 #!-----------------------------------------------------------------------
 #!-----------------------------------------------------------------------
 #!-----------------------------------------------------------------------
@@ -1494,7 +1574,6 @@ COMPILE('!***TRACE***', UD_TRACE)
 #GROUP(%DebugTraceEventsEnd)
 #!---------------------------------------------------------------------
 #!---------------------------------------------------------------------
-
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
@@ -1536,7 +1615,6 @@ COMPILE('!***TRACE***', UD_TRACE)
 #!--------------------------------------------------------------------
 #GROUP(%TheEmbedInfoEnd)
 #!--------------------------------------------------------------------
-
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
 #!--------------------------------------------------------------------
@@ -1564,7 +1642,6 @@ COMPILE('!***TRACE***', UD_TRACE)
 #AT(%DLLExportList)
   #SET(%GlobalExternal,%HoldGlobalExternal)
 #ENDAT
-
 #!---------------------------------------------------------------------
 #!---------------------------------------------------------------------
 #!---------------------------------------------------------------------

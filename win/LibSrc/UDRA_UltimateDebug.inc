@@ -267,8 +267,8 @@ DumpRecordWindow                            PROCEDURE(*FILE pFile,STRING xMsg,<S
 FormatMessageList                           PROCEDURE(STRING pMsg,*QUEUE pMsgQueue)
 DumpQueueWindow                             PROCEDURE(*QUEUE pQueue,<STRING pMsg>,<BYTE pNoTouch>)
 
-StringToHex 			PROCEDURE(*STRING binData),STRING
-ByteToHex 				PROCEDURE(BYTE xByte),STRING
+StringToHex                                 PROCEDURE(*STRING binData),STRING
+ByteToHex                                   PROCEDURE(BYTE xByte),STRING
 
 mg_init                                     PROCEDURE(STRING ProgramName)
 
