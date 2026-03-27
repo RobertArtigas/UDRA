@@ -1287,13 +1287,11 @@ MsgLineQ      QUEUE
 Text            STRING(100)
               END
 !------------------------------------------------------------------------------
-Window        WINDOW('Dump'),AT(,,676,416),FONT('Segoe UI',10,,),CENTER,SYSTEM,GRAY,DOUBLE
-                LIST,AT(4,4,668,356),USE(?DebugList),VSCROLL,FROM(FieldQ),FORMAT(|
-                  '200L(2)|M~Field Name~S(1)@S100@'   & |
-                  '80L(2)|M~Type~S(1)@S255@'          & |
-                  '1000L(2)|M~Value~S(1)@S255@')
-                LIST,AT(4,364,668,48),USE(?MessageList),VSCROLL,FROM(MsgLineQ)
-              END
+Window WINDOW('Dump'),AT(,,676,216),CENTER,GRAY,SYSTEM,FONT('Segoe UI',10),RESIZE
+    LIST,AT(4,4,668,156),USE(?DebugList),VSCROLL,FROM(FieldQ),FORMAT('200L(2)|M~' & |
+        'Field Name~S(1)@S100@80L(2)|M~Type~S(1)@S255@1000L(2)|M~Value~S(1)@S255@')
+    LIST,AT(4,164,668,48),USE(?MessageList),VSCROLL,FROM(MsgLineQ)
+  END
 !------------------------------------------------------------------------------
 	CODE
                                     	     COMPILE('!ENDCOMPILE', ST::DEBUG:Debugging=1)
@@ -1986,12 +1984,12 @@ MsgLineQ                   QUEUE
 Text                                STRING(100)
 									END
 !------------------------------------------------------------------------------
-Window    WINDOW('Debug'),AT(,,676,416),FONT('Tahoma',8,,),CENTER,SYSTEM,GRAY,DOUBLE
-				LIST,AT(4,4,668,356),USE(?DebugList),VSCROLL,FROM(FieldQ),FORMAT(|
+Window    WINDOW('Debug'),AT(,,676,216),FONT('Tahoma',8,,),CENTER,SYSTEM,GRAY,RESIZE
+				LIST,AT(4,4,668,156),USE(?DebugList),VSCROLL,FROM(FieldQ),FORMAT(|
 				      '125L(2)|M~Field Name~S(1)@S100@' & |
 				      '180L(2)|M~Value~S(1)@S255@'      & |
 				     '1000L(2)|M~Value2~S(1)@S255@')
-				LIST,AT(4,364,668,48),USE(?MessageList),VSCROLL,FROM(MsgLineQ)
+				LIST,AT(4,164,668,48),USE(?MessageList),VSCROLL,FROM(MsgLineQ)
 			 END
 !------------------------------------------------------------------------------
 	CODE
@@ -2101,9 +2099,9 @@ MsgLineQ                            QUEUE
 Text                                    STRING(1000)
 									END
 !------------------------------------------------------------------------------
-Window    WINDOW('Debug Queue'),SYSTEM,AT(,,676,416),CENTER,FONT('Tahoma', 8),GRAY,DOUBLE
-										LIST, AT(4,4,668,356), USE(?DebugList), HVSCROLL
-										LIST, AT(4,364,668,48), USE(?MessageList), VSCROLL, FROM(MsgLineQ)
+Window    WINDOW('Debug Queue'),SYSTEM,AT(,,676,216),CENTER,FONT('Tahoma', 8),GRAY,RESIZE
+										LIST, AT(4,4,668,156), USE(?DebugList), HVSCROLL
+										LIST, AT(4,164,668,48), USE(?MessageList), VSCROLL, FROM(MsgLineQ)
 									END
 !------------------------------------------------------------------------------
 	CODE
