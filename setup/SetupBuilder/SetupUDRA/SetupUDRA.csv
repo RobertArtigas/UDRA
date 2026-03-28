@@ -19,7 +19,7 @@ File ID,File Name,Destination Folder,Source Folder,Feature,Date,Time,Size (bytes
 00018,UDRA_UltimateString.inc,%_SB_INSTALLDIR%\Accessory\LibSrc\win,C:\_GIT_\RobertArtigas\UDRA\win\LibSrc,Always Install,2018/10/29,3177,,DE76D250,
 00019,UDRA_UltimateDebug.tpl,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2019/01/05,13277,,5C232F1F,
 00020,UDRA_UltimateDebug.tpw,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2018/12/01,7990,,57E52D8B,
-00021,UDRA_UltimateDebug2.TPW,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2026/03/22,69969,,60B42747,
+00021,UDRA_UltimateDebug2.TPW,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2026/03/28,69975,,2FFEA024,
 00022,UDRA_UltimateDebug3.TPW,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2014/11/07,20588,,9ABD5B4D,
 00023,UDRA_UltimateDebug4.TPW,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2014/11/07,13257,,FEA33C8C,
 00024,UDRA_UltimateDebug5.TPW,%_SB_INSTALLDIR%\Accessory\Template\Win,C:\_GIT_\RobertArtigas\UDRA\win\Template,Always Install,2015/01/19,22097,,8841D745,

@@ -1018,9 +1018,9 @@
 #ENDAT
 #!---------------------------------------------------------------------
 #AT(%ProcessedCode),PRIORITY(9998)
-  #IF(%TraceRun AND ~%CLSkelAppDisable)
-  RETURN    #<! UDRA: Generated
-  #ENDIF
+#!  #IF(%TraceRun AND ~%CLSkelAppDisable)
+#!  RETURN    #<! UDRA: Generated
+#!  #ENDIF
 #EMBED(%TraceSourceRunReturn,'%TraceSourceRunReturn: TraceSourceProcedureReturn')
 #ENDAT
 #!------------------------------------------------------------------!
